@@ -2,9 +2,11 @@
   "name": "pm2-discord",
   "version": "0.1.2",
   "description": "A PM2 module to emit events to discord",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-ts": "tsc",
+    "watch-ts": "tsc -w"
   },
   "repository": {
     "type": "git",
@@ -14,7 +16,7 @@
     "pm2",
     "discord"
   ],
-  "author": "Francisco <info@franciscog.com> (https://github.com/FranciscoG)",
+  "author": "Francisco <contact@franciscog.com> (https://github.com/FranciscoG)",
   "licenses": [
     {
       "type": "MIT",
@@ -48,5 +50,12 @@
     "buffer": true,
     "buffer_seconds": 1,
     "queue_max": 100
+  },
+  "devDependencies": {
+    "@types/axon": "^2.0.0",
+    "@types/node": "^13.13.4",
+    "@types/request": "^2.48.4",
+    "tslib": "^1.11.1",
+    "typescript": "^3.8.3"
   }
 }
