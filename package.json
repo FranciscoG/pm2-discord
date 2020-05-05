@@ -4,7 +4,9 @@
   "description": "A PM2 module to emit events to discord",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -29,7 +31,8 @@
     "pm2": "^4.1.2",
     "pmx": "^1.6.7",
     "request": "^2.88.0",
-    "strip-ansi": "^6.0.0"
+    "strip-ansi": "^6.0.0",
+    "snyk": "^1.316.1"
   },
   "config": {
     "discord_url": null,
@@ -48,5 +51,6 @@
     "buffer": true,
     "buffer_seconds": 1,
     "queue_max": 100
-  }
+  },
+  "snyk": true
 }
