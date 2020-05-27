@@ -9,6 +9,9 @@ const pmx = require('pmx');
 const message_queue_1 = __importDefault(require("./message-queue"));
 // Get the configuration from PM2
 const moduleConfig = pmx.initModule();
+function getConfig(processName, item) {
+    return moduleConfig[`${item}-${processName}`] || moduleConfig[item];
+}
 const msgRouter = {
     /**
      * Keys are Discord Urls, values are instances of MessageQueue
@@ -23,7 +26,7 @@ const msgRouter = {
      */
     addMessage: function (message) {
         const processName = message.name;
-        const discordUrl = moduleConfig['discord_url-' + processName] || moduleConfig['discord_url'];
+        const discordUrl = getConfig(processName, 'discord_url');
         if (!discordUrl) {
             return;
             // No discord URL defined for this process and no global discord URL exists.
@@ -31,11 +34,11 @@ const msgRouter = {
         if (!this.messageQueues[discordUrl]) {
             // Init new messageQueue to different discord URL.
             const config = {
-                buffer: moduleConfig['buffer-' + processName] || moduleConfig['buffer'],
+                buffer: getConfig(processName, 'buffer'),
                 discord_url: discordUrl,
-                buffer_seconds: moduleConfig['buffer_seconds-' + processName] || moduleConfig['buffer_seconds'],
-                buffer_max_seconds: moduleConfig['buffer_max_seconds-' + processName] || moduleConfig['buffer_max_seconds'],
-                queue_max: moduleConfig['queue_max-' + processName] || moduleConfig['queue_max'],
+                buffer_seconds: getConfig(processName, 'buffer_seconds'),
+                buffer_max_seconds: getConfig(processName, 'buffer_max_seconds'),
+                queue_max: getConfig(processName, 'queue_max')
             };
             this.messageQueues[discordUrl] = new message_queue_1.default(config);
         }
