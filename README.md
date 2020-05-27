@@ -64,4 +64,4 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## Acknowledgements
 
-Forked from [mattpker/pm2-slack](https://github.com/mattpker/pm2-slack) and converted to use with Discord. Thanks for the doing all the heavy lifting Matt :stuck_out_tongue_winking_eye:
+Forked from [mattpker/pm2-discord](https://github.com/mattpker/pm2-discord) and converted to use with Discord. Thanks for the doing all the heavy lifting Matt :stuck_out_tongue_winking_eye:

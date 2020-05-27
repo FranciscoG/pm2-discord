@@ -14,4 +14,4 @@ Update readme with more accurate instructions
 ## 0.1.0
 ### Feb 1, 2017
 
-Initial release after forking the code from `pm2-slack` and converting it to work with Discord
+Initial release after forking the code from `pm2-discord` and converting it to work with Discord
