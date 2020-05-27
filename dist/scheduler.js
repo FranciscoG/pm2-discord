@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * Adds ability to postpone the execution of some function.
- * If new postpone is requested, old schedule will be cancelling. So max. one schedule can exists in one time.
+ * If new postpone is requested, old schedule will be canceled. So max. one schedule can exists in one time.
  *
  * Configuration:
  *
@@ -17,8 +17,6 @@ class Scheduler {
     /**
      * Plan the postponed execution of callback function.
      * If some plan exists, it will be cancelled and replaced by the new one.
-     *
-     * @param {function} callback
      */
     schedule(callback) {
         const { buffer_max_seconds, buffer_seconds } = this.config;
@@ -27,7 +25,7 @@ class Scheduler {
             // Max buffer time reached. Do not replan sending.
             return;
         }
-        // If previous sending is planned, cancel it.        
+        // If previous sending is planned, cancel it.
         if (this._timeoutId) {
             clearTimeout(this._timeoutId);
         }
@@ -41,4 +39,3 @@ class Scheduler {
     }
 }
 exports.default = Scheduler;
-//# sourceMappingURL=scheduler.js.map
