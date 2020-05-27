@@ -1,8 +1,8 @@
 const pm2 = require('pm2');
 const pmx = require('pmx');
-import sendToDiscord from './send-to-discord';
+// import sendToDiscord from './send-to-discord';
 import MessageQueue from './message-queue';
-import { LogMessage, Process, DiscordMessage, SomeConfig } from './types/index';
+import { LogMessage, Process, DiscordMessage, MessageQueueConfig } from './types/index';
 import { SubEmitterSocket } from 'axon';
 
 // Get the configuration from PM2
@@ -10,7 +10,7 @@ const moduleConfig = pmx.initModule();
 
 const msgRouter = {
   /**
-   * Keys are slackUrls, values are instances of MessageQueue
+   * Keys are Discord Urls, values are instances of MessageQueue
    *
    * @typedef {Object.<string, MessageQueue>}
    */
@@ -18,34 +18,33 @@ const msgRouter = {
 
 
   /**
-   * Add the message to appropriate message queue (each Slack URL has own independent message enqueing).
+   * Add the message to appropriate message queue (each Discord URL has own independent message enqueing).
    *
    * @param {Message} message
    */
-  addMessage: function(message: DiscordMessage) {
-      const processName = message.name;
-      const slackUrl = moduleConfig['slack_url-' + processName] || moduleConfig['slack_url'];
+  addMessage: function (message: DiscordMessage): void {
+    const processName = message.name;
+    const discordUrl = moduleConfig['discord_url-' + processName] || moduleConfig['discord_url'];
 
-      if (!slackUrl) {
-          return;
-          // No Slack URL defined for this process and no global Slack URL exists.
+    if (!discordUrl) {
+      return;
+      // No discord URL defined for this process and no global discord URL exists.
+    }
+
+    if (!this.messageQueues[discordUrl]) {
+      // Init new messageQueue to different discord URL.
+      const config: MessageQueueConfig = {
+        buffer: moduleConfig['buffer-' + processName] || moduleConfig['buffer'],
+        discord_url: discordUrl,
+        buffer_seconds: moduleConfig['buffer_seconds-' + processName] || moduleConfig['buffer_seconds'],
+        buffer_max_seconds: moduleConfig['buffer_max_seconds-' + processName] || moduleConfig['buffer_max_seconds'],
+        queue_max: moduleConfig['queue_max-' + processName] || moduleConfig['queue_max'],
       }
 
-      if (!this.messageQueues[slackUrl]) {
-          // Init new messageQueue to different Slack URL.
+      this.messageQueues[discordUrl] = new MessageQueue(config);
+    }
 
-          // Resolve configuration parameters.
-          const configProperties = ['username', 'servername', 'buffer', 'slack_url', 'buffer_seconds', 'buffer_max_seconds', 'queue_max'];
-          const config: SomeConfig = {};
-          configProperties.forEach((configPropertyName: string) => {
-              // Use process based custom configuration values if exist, else use the global configuration values.
-              config[configPropertyName] = moduleConfig[configPropertyName + '-' + processName] || moduleConfig[configPropertyName];
-          });
-
-          this.messageQueues[slackUrl] = new MessageQueue(config);
-      }
-
-      this.messageQueues[slackUrl].addMessageToQueue(message);
+    this.messageQueues[discordUrl].addMessageToQueue(message);
 
   }
 };
@@ -100,7 +99,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for process logs
   if (moduleConfig.log) {
     bus.on('log:out', function (data) {
-      if (data.process.name === 'pm2-slack') { return; } // Ignore messages of own module.
+      if (data.process.name === 'pm2-discord') { return; } // Ignore messages of own module.
 
       const parsedLog = parseIncommingLog(data.data);
       msgRouter.addMessage({
@@ -115,7 +114,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for process errors
   if (moduleConfig.error) {
     bus.on('log:err', function (data) {
-      if (data.process.name === 'pm2-slack') { return; } // Ignore messages of own module.
+      if (data.process.name === 'pm2-discord') { return; } // Ignore messages of own module.
 
       const parsedLog = parseIncommingLog(data.data);
       msgRouter.addMessage({
@@ -142,7 +141,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for process exceptions
   if (moduleConfig.exception) {
     bus.on('process:exception', function (data) {
-      if (data.process.name === 'pm2-slack') { return; } // Ignore messages of own module.
+      if (data.process.name === 'pm2-discord') { return; } // Ignore messages of own module.
 
       // If it is instance of Error, use it. If type is unknown, stringify it.
       const description = (data.data && data.data.message) ? (data.data.code || '') + data.data.message : JSON.stringify(data.data);
@@ -158,7 +157,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for PM2 events
   bus.on('process:event', function (data) {
     if (!moduleConfig[data.event]) { return; } // This event type is disabled by configuration.
-    if (data.process.name === 'pm2-slack') { return; } // Ignore messages of own module.
+    if (data.process.name === 'pm2-discord') { return; } // Ignore messages of own module.
 
     let description = null;
     switch (data.event) {

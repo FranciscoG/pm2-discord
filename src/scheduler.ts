@@ -32,7 +32,7 @@ export default class Scheduler {
       return;
     }
 
-    // If previous sending is planned, cancel it.        
+    // If previous sending is planned, cancel it.
     if (this._timeoutId) {
       clearTimeout(this._timeoutId);
     }
