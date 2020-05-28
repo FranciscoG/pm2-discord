@@ -44,3 +44,7 @@ export interface LogMessage{
   description: string|null,
   timestamp: number|null
 }
+
+export interface SendToDiscord {
+  (messages: DiscordMessage[], config: MessageQueueConfig): void
+}

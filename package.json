@@ -4,9 +4,9 @@
   "description": "A PM2 module to emit events to discord",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build-ts": "tsc",
-    "watch-ts": "tsc -w"
+    "test": "tape 'tests/**/*.js'",
+    "build": "tsc",
+    "watch": "tsc -w"
   },
   "repository": {
     "type": "git",
@@ -54,6 +54,7 @@
   "devDependencies": {
     "@types/axon": "^2.0.0",
     "@types/node": "^13.13.4",
+    "tape": "^5.0.1",
     "tslib": "^1.11.1",
     "typescript": "^3.8.3"
   }

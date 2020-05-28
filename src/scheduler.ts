@@ -7,7 +7,6 @@ import { SchedulerConfig } from './types/index';
  * Configuration:
  * 
  * - Postponing time is defined in `buffer_seconds`.
- * - 
  */
 export default class Scheduler {
   private _timeoutId: NodeJS.Timeout | null
@@ -15,6 +14,12 @@ export default class Scheduler {
 
   config: SchedulerConfig;
 
+  /**
+   * 
+   * @param {object} config 
+   * @param {number} config.buffer_seconds
+   * @param {number} config.buffer_max_seconds
+   */
   constructor(config: SchedulerConfig) {
     this.config = config;
   }

@@ -18,17 +18,19 @@ To get the Discord URL, you need to setup a Webhook. More details on how to set 
 
 The following events can be subscribed to:
 
-- **log** - All standard out logs from your processes. `Default: true`
-- **error** - All error logs from your processes. `Default: false`
-- **kill** - Event fired when PM2 is killed. `Default: true`
-- **exception** - Any exceptions from your processes. `Default: true`
-- **restart** - Event fired when a process is restarted. `Default: false`
-- **delete** - Event fired when a process is removed from PM2. `Default: false`
-- **stop** - Event fired when a process is stopped. `Default: true`
-- **restart overlimit** - Event fired when a process is reaches the max amount of times it can restart. `Default: true`
-- **exit** - Event fired when a process is exited. `Default: false`
-- **start** -  Event fired when a process is started. `Default: false`
-- **online** - Event fired when a process is online. `Default: false`
+| event | description | default |
+| ----- | ----------- | ------- |
+| log | All standard out logs from your processes | `true` |
+| error | All error logs from your processes | `false` |
+| kill | Event fired when PM2 is killed | `true` |
+| exception | Any exceptions from your processes | `true` |
+| restart | Event fired when a process is restarted | `false` |
+| delete | Event fired when a process is removed from PM2 | `false` |
+| stop | Event fired when a process is stopped | `true` |
+| restart overlimit | Event fired when a process reaches the max amount of times it can restart | `true` |
+| exit | Event fired when a process is exited | `false` |
+| start | Event fired when a process is started | `false` |
+| online | Event fired when a process is online | `false` |
 
 You can simply turn these on and off by setting them to true or false using the PM2 set command.
 
@@ -42,10 +44,13 @@ pm2 set pm2-discord:error false
 
 The following options are available:
 
-- **process_name** (string) When this is set, it will only output the logs of a specific named process `Default: NULL`
-- **buffer** (bool) - Enable/Disable buffering of messages by timestamp. Messages that occur with the same timestamp (seconds) will be concatenated together and posted as a single discord message. `Default: true`
-- **buffer_seconds** (int) - Duration in seconds to aggregate messages. Has no effect if buffer is set to false.  `Min: 1, Max: 5, Default: 1`
-- **queue_max** (int) - Number of messages to keep queued before the queue will be truncated. When the queue exceeds this maximum, a rate limit message will be posted to discord. `Min: 10, Max: 100, Default: 100`
+| option | type | description | default |
+| ----- | ----- | ----------- | ------- |
+| process_name | `string` | When this is set, it will only output the logs of a specific named process | `null` |
+| buffer | `bool` | Enable/Disable buffering of messages by timestamp. Messages that occur with the same timestamp (seconds) will be concatenated together and posted as a single discord message | `true` |
+| buffer_seconds | `int` | Duration in seconds to aggregate messages. Has no effect if buffer is set to false | `1` |
+| buffer_max_seconds | `int` | Duration in seconds to aggregate messages. Has no effect if buffer is set to false | `20` |
+| queue_max | `int` | Number of messages to keep queued before the queue will be truncated. When the queue exceeds this maximum, a rate limit message will be posted to discord | `100` |
 
 Set these options in the same way you subscribe to events.
 
@@ -64,4 +69,4 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## Acknowledgements
 
-Forked from [mattpker/pm2-discord](https://github.com/mattpker/pm2-discord) and converted to use with Discord. Thanks for the doing all the heavy lifting Matt :stuck_out_tongue_winking_eye:
+Forked from [mattpker/pm2-slack](https://github.com/mattpker/pm2-slack) and converted to use with Discord. Thanks for the doing all the heavy lifting Matt :stuck_out_tongue_winking_eye:

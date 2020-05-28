@@ -7,9 +7,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * Configuration:
  *
  * - Postponing time is defined in `buffer_seconds`.
- * -
  */
 class Scheduler {
+    /**
+     *
+     * @param {object} config
+     * @param {number} config.buffer_seconds
+     * @param {number} config.buffer_max_seconds
+     */
     constructor(config) {
         this._totalPostponingSeconds = 0;
         this.config = config;

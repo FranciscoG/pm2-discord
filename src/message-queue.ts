@@ -1,39 +1,38 @@
-import { MessageQueueConfig, DiscordMessage } from './types/index';
-import Scheduler from './scheduler';
-import sendToDiscord from './send-to-discord';
+import { MessageQueueConfig, DiscordMessage, SendToDiscord } from './types/index';
+import Scheduler from './scheduler' // just to import class type
 
 export default class MessageQueue {
   config: MessageQueueConfig
   messageQueue: DiscordMessage[] = []
   scheduler: Scheduler
+  sender: SendToDiscord
 
-  constructor(config: MessageQueueConfig) {
+  constructor(config: MessageQueueConfig, scheduler: Scheduler, sender: SendToDiscord) {
     this.config = config;
     this.messageQueue = [];
-    this.scheduler = new Scheduler(config);
+    this.scheduler = scheduler;
+    this.sender = sender
   }
 
   /**
-   * Sends the message to Discord's Incoming Webhook.
+   * Sends the message to Discord's Webhook.
    * If buffer is enabled, the message is added to queue and sending is postponed for couple of seconds.
    * 
    * @param {Message} message
    */
   addMessageToQueue(message: DiscordMessage) {
-    const self = this;
-
     if (!this.config.buffer || !(this.config.buffer_seconds > 0)) {
       // No sending buffer defined. Send directly to Discord.
-      sendToDiscord([message], self.config);
+      this.sender([message], this.config);
     } else {
       // Add message to buffer
       this.messageQueue.push(message);
       // Plan send the enqueued messages
-      this.scheduler.schedule(function () {
+      this.scheduler.schedule( () => {
         // Remove waiting messages from global queue
-        const messagesToSend: DiscordMessage[] = self.messageQueue.splice(0, self.messageQueue.length);
+        const messagesToSend: DiscordMessage[] = this.messageQueue.splice(0, this.messageQueue.length);
 
-        sendToDiscord(messagesToSend, self.config);
+        this.sender(messagesToSend, this.config);
       });
     }
 

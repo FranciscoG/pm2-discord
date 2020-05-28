@@ -1,14 +1,18 @@
+import { LogMessage, Process, DiscordMessage, MessageQueueConfig } from './types/index';
 const pm2 = require('pm2');
 const pmx = require('pmx');
-// import sendToDiscord from './send-to-discord';
 import MessageQueue from './message-queue';
-import { LogMessage, Process, DiscordMessage, MessageQueueConfig } from './types/index';
+import Scheduler from './scheduler';
+import sendToDiscord from './send-to-discord'
 import { SubEmitterSocket } from 'axon';
 
 // Get the configuration from PM2
 const moduleConfig = pmx.initModule();
 
-function getConfig(processName: string, item: string) {
+function getConfig(processName: string, item: string, defaultValue?: string|number|boolean) {
+  if (defaultValue) {
+    return  moduleConfig[`${item}-${processName}`] || moduleConfig[item] || defaultValue;
+  }
   return  moduleConfig[`${item}-${processName}`] || moduleConfig[item];
 }
 
@@ -38,14 +42,16 @@ const msgRouter = {
     if (!this.messageQueues[discordUrl]) {
       // Init new messageQueue to different discord URL.
       const config: MessageQueueConfig = {
-        buffer: getConfig(processName, 'buffer'),
+        buffer: getConfig(processName, 'buffer', true),
         discord_url: discordUrl,
-        buffer_seconds: getConfig(processName, 'buffer_seconds'),
-        buffer_max_seconds: getConfig(processName, 'buffer_max_seconds'),
-        queue_max: getConfig(processName, 'queue_max')
+        buffer_seconds: getConfig(processName, 'buffer_seconds', 1),
+        buffer_max_seconds: getConfig(processName, 'buffer_max_seconds', 20),
+        queue_max: getConfig(processName, 'queue_max', 100)
       }
 
-      this.messageQueues[discordUrl] = new MessageQueue(config);
+      const scheduler = new Scheduler(config)
+
+      this.messageQueues[discordUrl] = new MessageQueue(config, scheduler, sendToDiscord);
     }
 
     this.messageQueues[discordUrl].addMessageToQueue(message);
