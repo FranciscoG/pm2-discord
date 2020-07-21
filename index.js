@@ -28,6 +28,7 @@ var suppressed = {
 function sendToDiscord(message) {
 
   var description = message.description;
+  var name = message.name
 
   // If a Discord URL is not set, we do not want to continue and nofify the user that it needs to be set
   if (!conf.discord_url) {
@@ -36,7 +37,8 @@ function sendToDiscord(message) {
 
   // The JSON payload to send to the Webhook
   var payload = {
-    "content" : "```" + description + "```"
+    "content" : "```" + description + "```",
+    "username": name
   };
 
   // Options for the post request
