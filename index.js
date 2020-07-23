@@ -28,6 +28,7 @@ var suppressed = {
 function sendToDiscord(message) {
 
   var description = message.description;
+  var name = message.name
 
   // If a Discord URL is not set, we do not want to continue and nofify the user that it needs to be set
   if (!conf.discord_url) {
@@ -36,7 +37,8 @@ function sendToDiscord(message) {
 
   // The JSON payload to send to the Webhook
   var payload = {
-    "content" : description
+    "content" : "```" + description + "```",
+    "username": name
   };
 
   // Options for the post request
@@ -67,11 +69,11 @@ function bufferMessage() {
 
   nextMessage.buffer = [nextMessage.description];
 
-  // continue shifting elements off the queue while they are the same event and 
+  // continue shifting elements off the queue while they are the same event and
   // timestamp so they can be buffered together into a single request
-  while (messages.length && 
-    (messages[0].timestamp >= nextMessage.timestamp && 
-      messages[0].timestamp < (nextMessage.timestamp + conf.buffer_seconds)) && 
+  while (messages.length &&
+    (messages[0].timestamp >= nextMessage.timestamp &&
+      messages[0].timestamp < (nextMessage.timestamp + conf.buffer_seconds)) &&
     messages[0].event === nextMessage.event) {
 
     // append description to our buffer and shift the message off the queue and discard it
@@ -126,7 +128,7 @@ function createMessage(data, eventName, altDescription) {
   if (data.process.name === 'pm2-discord') {
     return;
   }
-  // if a specific process name was specified then we check to make sure only 
+  // if a specific process name was specified then we check to make sure only
   // that process gets output
   if (conf.process_name !== null && data.process.name !== conf.process_name) {
     return;
@@ -135,7 +137,7 @@ function createMessage(data, eventName, altDescription) {
   var msg = altDescription || data.data;
   if (typeof msg === "object") {
     msg = JSON.stringify(msg);
-  } 
+  }
 
   messages.push({
     name: data.process.name,
