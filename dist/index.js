@@ -1,13 +1,10 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const pm2 = require('pm2');
 const pmx = require('pmx');
-const message_queue_1 = __importDefault(require("./message-queue"));
-const scheduler_1 = __importDefault(require("./scheduler"));
-const send_to_discord_1 = __importDefault(require("./send-to-discord"));
+const MessageQueue = require('./message-queue');
+const Scheduler = require('./scheduler');
+const sendToDiscord = require('./send-to-discord');
 // Get the configuration from PM2
 const moduleConfig = pmx.initModule();
 function getConfig(processName, item, defaultValue) {
@@ -32,6 +29,8 @@ const msgRouter = {
         const processName = message.name;
         const discordUrl = getConfig(processName, 'discord_url');
         if (!discordUrl) {
+            console.warn('pm2-discord: "discord_url" is undefined. No message sent.');
+            console.warn('pm2-discord: `pm2 set pm2-discord:discord_url YOUR_URL`');
             return;
             // No discord URL defined for this process and no global discord URL exists.
         }
@@ -44,8 +43,8 @@ const msgRouter = {
                 buffer_max_seconds: getConfig(processName, 'buffer_max_seconds', 20),
                 queue_max: getConfig(processName, 'queue_max', 100)
             };
-            const scheduler = new scheduler_1.default(config);
-            this.messageQueues[discordUrl] = new message_queue_1.default(config, scheduler, send_to_discord_1.default);
+            const scheduler = new Scheduler(config);
+            this.messageQueues[discordUrl] = new MessageQueue(config, scheduler, sendToDiscord);
         }
         this.messageQueues[discordUrl].addMessageToQueue(message);
     }
