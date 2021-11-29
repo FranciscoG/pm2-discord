@@ -50,13 +50,12 @@
     "online": false,
     "buffer": true,
     "buffer_seconds": 1,
+    "buffer_max_seconds": 5,
     "queue_max": 100
   },
   "devDependencies": {
-    "@types/axon": "^2.0.0",
     "@types/node": "^13.13.4",
     "tape": "^5.0.1",
-    "tslib": "^1.11.1",
-    "typescript": "^3.8.3"
+    "typescript": "^4.5.2"
   }
 }
