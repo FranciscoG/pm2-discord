@@ -1,19 +1,20 @@
-import { LogMessage, Process, DiscordMessage, MessageQueueConfig } from './types/index';
+import type { LogMessage, Process, DiscordMessage, MessageQueueConfig } from './types/index';
+import type { SubEmitterSocket } from 'axon';
+
 const pm2 = require('pm2');
 const pmx = require('pmx');
-import MessageQueue from './message-queue';
-import Scheduler from './scheduler';
-import sendToDiscord from './send-to-discord'
-import { SubEmitterSocket } from 'axon';
+const MessageQueue = require('./message-queue');
+const Scheduler = require('./scheduler');
+const sendToDiscord = require('./send-to-discord');
 
 // Get the configuration from PM2
 const moduleConfig = pmx.initModule();
 
-function getConfig(processName: string, item: string, defaultValue?: string|number|boolean) {
+function getConfig(processName: string, item: string, defaultValue?: string | number | boolean) {
   if (defaultValue) {
-    return  moduleConfig[`${item}-${processName}`] || moduleConfig[item] || defaultValue;
+    return moduleConfig[`${item}-${processName}`] || moduleConfig[item] || defaultValue;
   }
-  return  moduleConfig[`${item}-${processName}`] || moduleConfig[item];
+  return moduleConfig[`${item}-${processName}`] || moduleConfig[item];
 }
 
 const msgRouter = {
@@ -32,9 +33,11 @@ const msgRouter = {
    */
   addMessage: function (message: DiscordMessage): void {
     const processName = message.name;
-    const discordUrl = getConfig(processName, 'discord_url')
+    const discordUrl = getConfig(processName, 'discord_url');
 
     if (!discordUrl) {
+      console.warn('pm2-discord: "discord_url" is undefined. No message sent.')
+      console.warn('pm2-discord: `pm2 set pm2-discord:discord_url YOUR_URL`')
       return;
       // No discord URL defined for this process and no global discord URL exists.
     }
@@ -49,7 +52,7 @@ const msgRouter = {
         queue_max: getConfig(processName, 'queue_max', 100)
       }
 
-      const scheduler = new Scheduler(config)
+      const scheduler = new Scheduler(config);
 
       this.messageQueues[discordUrl] = new MessageQueue(config, scheduler, sendToDiscord);
     }

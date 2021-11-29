@@ -29,7 +29,7 @@ export interface BaseConfig {
    * If is defined, postponning is limited to this total time.
    * So when new postpones are requested and it will exceed this value, it will be ignored. 
    */
-  buffer_max_seconds?: number
+  buffer_max_seconds: number
 }
 
 export interface SchedulerConfig extends BaseConfig {}
