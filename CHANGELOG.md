@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+### ??, ??, 2021
+
+Rewrite using TypeScript.
+
 ## 0.1.2
 ### May 4, 2020
 

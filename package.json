@@ -6,6 +6,7 @@
   "scripts": {
     "test": "tape 'tests/**/*.js'",
     "build": "tsc",
+    "prepublishOnly": "tsc",
     "watch": "tsc -w"
   },
   "repository": {
@@ -16,7 +17,7 @@
     "pm2",
     "discord"
   ],
-  "author": "Francisco <contact@franciscog.com> (https://github.com/FranciscoG)",
+  "author": "Francisco (https://github.com/FranciscoG)",
   "licenses": [
     {
       "type": "MIT",

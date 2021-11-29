@@ -21,7 +21,7 @@ class MessageQueue {
      */
     addMessageToQueue(message) {
         if (!this.config.buffer || this.config.buffer_seconds < 1) {
-            // No sending buffer defined. Send directly to Discord.
+            // Buffering disabled, send directly to Discord.
             this.sender([message], this.config);
             return;
         }
@@ -31,7 +31,7 @@ class MessageQueue {
             this.flushQueue();
             return;
         }
-        // Plan send the enqueued messages
+        // Schedule queued messages to be sent
         this.scheduler.schedule(this.flushQueue.bind(this));
     }
 }
