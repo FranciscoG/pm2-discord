@@ -1,8 +1,11 @@
 {
   "name": "pm2-discord",
-  "version": "0.1.2",
-  "description": "A PM2 module to emit events to discord",
+  "version": "1.0.0",
+  "description": "A PM2 module to emit events and logs to discord",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "scripts": {
     "test": "tape 'tests/**/*.js'",
     "build": "tsc",
@@ -29,10 +32,10 @@
   },
   "homepage": "https://github.com/FranciscoG/pm2-discord",
   "dependencies": {
-    "pm2": "^5.0.0",
-    "pmx": "^1.6.7",
-    "request": "^2.88.0",
-    "strip-ansi": "^7.0.0"
+    "node-fetch": "3.3.2",
+    "pm2": "6.0.14",
+    "pmx": "1.6.8",
+    "strip-ansi": "7.1.2"
   },
   "config": {
     "discord_url": null,
@@ -51,11 +54,11 @@
     "buffer": true,
     "buffer_seconds": 1,
     "buffer_max_seconds": 5,
-    "queue_max": 100
+    "queue_max": 50
   },
   "devDependencies": {
-    "@types/node": "^13.13.4",
-    "tape": "^5.0.1",
-    "typescript": "^4.5.2"
+    "@types/node": "^16.0.0",
+    "tape": "^5.9.0",
+    "typescript": "^5.9.3"
   }
 }
