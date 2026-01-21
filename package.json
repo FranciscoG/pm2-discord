@@ -2,12 +2,13 @@
   "name": "pm2-discord",
   "version": "1.0.0",
   "description": "A PM2 module to emit events and logs to discord",
-  "main": "dist/index.js",
+  "main": "dist/index.mjs",
   "engines": {
     "node": ">=16.0.0"
   },
   "scripts": {
-    "test": "tape 'tests/**/*.js'",
+    "test": "npm run build && tape 'tests/unit/*-test.js'",
+    "test:integration": "npm run build && tape 'tests/integration/*.test.js'",
     "build": "tsc",
     "prepublishOnly": "tsc",
     "watch": "tsc -w"
@@ -53,12 +54,14 @@
     "online": false,
     "buffer": true,
     "buffer_seconds": 1,
-    "buffer_max_seconds": 5,
-    "queue_max": 50
+    "queue_max": 100,
+    "rate_limit_messages": 30,
+    "rate_limit_window_seconds": 60
   },
   "devDependencies": {
+    "@types/axon": "^2.0.5",
     "@types/node": "^16.0.0",
-    "tape": "^5.9.0",
-    "typescript": "^5.9.3"
+    "tape": "5.9.0",
+    "typescript": "5.9.3"
   }
 }

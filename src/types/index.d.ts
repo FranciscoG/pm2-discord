@@ -2,16 +2,15 @@
 export interface DiscordMessage {
   name: string,
   event: string,
-  description: string|null,
-  buffer?: string[],
-  timestamp: number|null
+  description: string | null,
+  timestamp: number | null
 }
 
 export interface Process {
   name: string,
   exec_mode: string,
   instances: number,
-  pm_id: string|number
+  pm_id: string | number
 }
 
 // data.process.name
@@ -20,31 +19,82 @@ export interface BusData {
   data?: string
 }
 
-export interface BaseConfig {
-  /**
-   * Postponing time. If it is zero, the callback is always executed immediately.
-   */
-  buffer_seconds: number,
-  /**
-   * If is defined, postponning is limited to this total time.
-   * So when new postpones are requested and it will exceed this value, it will be ignored. 
-   */
-  buffer_max_seconds: number
+export interface LogMessage {
+  description: string | null,
+  timestamp: number | null
 }
 
-export interface SchedulerConfig extends BaseConfig {}
-
-export interface MessageQueueConfig extends BaseConfig {
-  buffer: boolean,
-  queue_max: number
-  discord_url?: string
+/**
+ * Discord API rate limit information from response headers
+ */
+export interface DiscordRateLimitInfo {
+  /** The number of requests that can be made */
+  limit?: number,
+  /** The number of remaining requests that can be made */
+  remaining?: number,
+  /** Epoch time (seconds) at which the rate limit resets */
+  reset?: number,
+  /** Total time (in seconds) of when the current rate limit bucket will reset */
+  resetAfter?: number,
+  /** A unique string denoting the rate limit being encountered */
+  bucket?: string
 }
 
-export interface LogMessage{
-  description: string|null,
-  timestamp: number|null
+/**
+ * Result from sending messages to Discord
+ */
+export interface SendToDiscordResult {
+  /** Whether the request was successful */
+  success: boolean,
+  /** Whether the request was rate limited (429 response) */
+  rateLimited?: boolean,
+  /** Seconds to wait before retrying (from Retry-After header or response body) */
+  retryAfter?: number,
+  /** Whether this is a global rate limit */
+  isGlobal?: boolean,
+  /** Whether the webhook is invalid (404 response) - should stop sending */
+  webhookInvalid?: boolean,
+  /** Rate limit information from response headers */
+  rateLimitInfo: DiscordRateLimitInfo,
+  /** Error message if request failed */
+  error?: string
 }
 
 export interface SendToDiscord {
-  (messages: DiscordMessage[], config: MessageQueueConfig): void
+  (messages: DiscordMessage[], config: MessageQueueConfig): Promise<SendToDiscordResult>
+}
+
+/**
+ * Tracks a single request in the rate limit history
+ */
+export interface RequestHistoryEntry {
+  timestamp: number,
+  messageCount: number
+}
+
+/**
+ * These config items are custom to pm2-discord
+ */
+export interface MessageQueueConfig {
+  discord_url?: string | null,
+  rate_limit_messages?: number,
+  rate_limit_window_seconds?: number,
+  buffer?: boolean,
+  buffer_seconds?: number,
+  queue_max?: number
+}
+
+export interface Config extends MessageQueueConfig {
+  process_name?: string | null
+  log: boolean
+  error: boolean
+  kill: boolean
+  exception: boolean
+  restart: boolean
+  delete: boolean
+  stop: boolean
+  "restart overlimit": boolean
+  exit: boolean
+  start: boolean
+  online: boolean
 }

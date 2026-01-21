@@ -2,6 +2,12 @@
 
 This is a PM2 Module for sending events & logs from your PM2 processes to Discord.
 
+## Requirements
+
+You should have [pm2](https://www.npmjs.com/package/pm2) installed globally or locally. This has only been tested with versions `>=5.x.x`
+
+Node `>=16.0.0` to match [pm2's min version of node](https://github.com/Unitech/pm2/blob/v6.0.14/package.json) for v6
+
 ## Install
 
 To install and setup pm2-discord, run the following commands:
@@ -27,7 +33,7 @@ The following events can be subscribed to:
 | restart | Event fired when a process is restarted | `false` |
 | delete | Event fired when a process is removed from PM2 | `false` |
 | stop | Event fired when a process is stopped | `true` |
-| restart overlimit | Event fired when a process reaches the max amount of times it can restart | `true` |
+| restart_overlimit | Event fired when a process reaches the max amount of times it can restart | `true` |
 | exit | Event fired when a process is exited | `false` |
 | start | Event fired when a process is started | `false` |
 | online | Event fired when a process is online | `false` |
@@ -51,6 +57,8 @@ The following options are available:
 | buffer_seconds | `int` | If buffer is true, how many seconds to wait between messages | `1` |
 | buffer_max_seconds | `int` | If buffer is true, max amount of seconds to wait before flushing buffer | `20` |
 | queue_max | `int` | Max amount of messages allowed in the queue before flushing the queue | `100` |
+| rate_limit_messages | `int` | Number of messages allowed within the rate limit window (defaults to Discord webhook limit) | `30` |
+| rate_limit_window_seconds | `int` | Time window in seconds for rate limiting (defaults to Discord webhook limit) | `60` |
 
 Set these options in the same way you subscribe to events.
 
@@ -62,6 +70,34 @@ pm2 set pm2-discord:buffer true
 pm2 set pm2-discord:buffer_seconds 2
 pm2 set pm2-discord:queue_max 50
 ```
+
+## Rate Limiting
+
+This module automatically handles Discord's rate limits to prevent your webhook from being blocked. By default, it uses Discord's webhook rate limit of 30 requests per 60 seconds (0.5 requests/second).
+
+**Key Features:**
+- Automatic throttling to stay within Discord's limits
+- Respects `429 Too Many Requests` responses and backs off automatically
+- Handles both route-specific and global rate limits
+- Detects invalid webhooks (404) and stops sending to prevent bans
+- Messages are queued and sent at a controlled rate
+
+**How it works:**
+1. Messages are added to a queue when they arrive
+2. The queue is processed at a rate that stays within Discord's limits (default: 30 per 60 seconds)
+3. If Discord returns a 429 rate limit response, the module backs off for the specified `retry_after` period
+4. Rate limit information from Discord's response headers is tracked and respected
+5. If a webhook returns 404 (deleted/invalid), the module stops attempting to send messages to prevent repeated errors
+
+**Custom Rate Limits:**
+You can adjust the rate limits if needed (though the defaults are recommended):
+
+```bash
+pm2 set pm2-discord:rate_limit_messages 20
+pm2 set pm2-discord:rate_limit_window_seconds 60
+```
+
+**Important:** The rate will never exceed Discord's webhook limit of 30 requests per 60 seconds, even if you configure higher values. This prevents your webhook from being rate-limited or banned.
 
 ## Buffering
 
@@ -84,4 +120,4 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## Acknowledgements
 
-Forked from [mattpker/pm2-slack](https://github.com/mattpker/pm2-slack) and converted to use with Discord. Thanks for the doing all the heavy lifting Matt!
+Forked from [mattpker/pm2-slack](https://github.com/mattpker/pm2-slack) and converted to use with Discord.
