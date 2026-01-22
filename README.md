@@ -12,9 +12,9 @@ Node `>=16.0.0` to match [pm2's min version of node](https://github.com/Unitech/
 
 To install and setup pm2-discord, run the following commands:
 
-```
+```sh
 pm2 install pm2-discord
-pm2 set pm2-discord:discord_url https://discord_url
+pm2 set pm2-discord:discord_url https://your_discord_webhook_url
 ```
 
 #### `discord_url`
@@ -33,14 +33,14 @@ The following events can be subscribed to:
 | restart | Event fired when a process is restarted | `false` |
 | delete | Event fired when a process is removed from PM2 | `false` |
 | stop | Event fired when a process is stopped | `true` |
-| restart_overlimit | Event fired when a process reaches the max amount of times it can restart | `true` |
+| "restart overlimit" | Event fired when a process reaches the max amount of times it can restart | `true` |
 | exit | Event fired when a process is exited | `false` |
 | start | Event fired when a process is started | `false` |
 | online | Event fired when a process is online | `false` |
 
 You can simply turn these on and off by setting them to true or false using the PM2 set command.
 
-```
+```sh
 pm2 set pm2-discord:log true
 pm2 set pm2-discord:error false
 ...
@@ -54,17 +54,17 @@ The following options are available:
 | ----- | ----- | ----------- | ------- |
 | process_name | `string` | When this is set, it will only output the logs of a specific named process | `null` |
 | buffer | `bool` | Enable/Disable buffering of messages. See [Buffering](#buffering) section below for more info | `true` |
-| buffer_seconds | `int` | If buffer is true, how many seconds to wait between messages | `1` |
-| buffer_max_seconds | `int` | If buffer is true, max amount of seconds to wait before flushing buffer | `20` |
-| queue_max | `int` | Max amount of messages allowed in the queue before flushing the queue | `100` |
+| buffer_seconds | `int` | If buffer is true, how many seconds to wait between messages. Min: `1`, Max: `5` | `1` |
+| queue_max | `int` | Max amount of messages allowed in the queue before flushing the queue.  Min: `10`, Max: `100`  | `100` |
 | rate_limit_messages | `int` | Number of messages allowed within the rate limit window (defaults to Discord webhook limit) | `30` |
 | rate_limit_window_seconds | `int` | Time window in seconds for rate limiting (defaults to Discord webhook limit) | `60` |
+| format | `boolean` | If enabled, it wraps the message in triple backticks to format as a [multi-line code block](https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline#h_01GY0DAKGXDEHE263BCAYEGFJA) | `false` |
 
 Set these options in the same way you subscribe to events.
 
 Example: The following configuration options will enable message buffering, and set the buffer duration to 2 seconds.  All messages that occur within 2 seconds of each other (for the same event) will be concatenated into a single discord message.
 
-```
+```sh
 pm2 set pm2-discord:process_name myprocess
 pm2 set pm2-discord:buffer true
 pm2 set pm2-discord:buffer_seconds 2
@@ -99,20 +99,22 @@ pm2 set pm2-discord:rate_limit_window_seconds 60
 
 **Important:** The rate will never exceed Discord's webhook limit of 30 requests per 60 seconds, even if you configure higher values. This prevents your webhook from being rate-limited or banned.
 
+Read more about Discord's rate limiting here:
+- <https://support-dev.discord.com/hc/en-us/articles/6223003921559-My-Bot-is-Being-Rate-Limited>
+- <https://discord.com/developers/docs/topics/rate-limits>
+
 ## Buffering
 
 Enabling buffering allows you to reduce the amount of messages sent to Discord by waiting and concatenating messages into one. 
 
 It works like this, lets say we have an empty queue and our first message comes in:
 - start a timer with `buffer_seconds` seconds
-- start another timer wiith `buffer_max_seconds` seconds
 - if a new message comes in and the `buffer_seconds` timer has not expired, cancel it, add message to queue, start a new `buffer_seconds` timer. Repeat this until one of three things happen:
-  - If no new messages come and `buffer_seconds` timeout expires, flush the queue, cancel the `buffer_max_seconds` timer
-  - if the `buffer_max_seconds` timeout expires, its callback will flush the queue and cancel the `buffer_seconds` timer
+  - If no new messages come and `buffer_seconds` timeout expires, flush the queue
   - if the length of the queue array reaches `queue_max`, flush the queue and cancel all timers
 - then we wait for new message to come in and start the process all over again
 
-"flush the queue" means that we concatenate all messages in the queue and send it to Discord, and then start a new empty queue.
+"flush the queue" means that we concatenate all messages in the queue and send it to Discord as 1 single message, and then start a new empty queue.
 
 ## Contributing
 

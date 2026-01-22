@@ -1,13 +1,20 @@
 # Changelog
 
 ## 1.0.0
-### 2026-??-??
+### 2026-01-22
 
 ### Breaking Changes
 
 - Set the minimum Node engine to `>=16.0.0` to match [pm2's v6](https://github.com/Unitech/pm2/blob/v6.0.14/package.json). In pm2 v5 is was Node 12.
 
 ### Features
+
+- Implemented requested updates from [this PR](https://github.com/FranciscoG/pm2-discord/pull/6).
+  - added a new `format` option, default to `false`, that wraps the message sent to Discord in backticks to format it as a multi-line code black using triple-backticks
+
+    `pm2 set pm2-discord:format true`
+  
+  - In the payload to the Discord webhook, set the username to be the process name.
 
 - **Rate Limiting Compliance**: Fully implemented Discord's webhook rate limiting (30 requests per 60 seconds)
   - Automatic throttling to stay within Discord's limits
@@ -30,10 +37,8 @@
 ### Internal Changes
 
 - Complete rewrite using TypeScript
-- Added comprehensive test suite (58 tests covering rate limiting, buffering, and error handling)
-- Modular architecture: MessageQueue handles buffering and rate limiting, sendToDiscord handles API communication
-- Added comprehensive unit tests for all rate limiting scenarios
-- Separated concerns: message queue management, Discord API interaction
+- Added comprehensive unit test suite
+- Added integration tests
 - Added proper error handling for network failures and Discord API errors
 
 ## 0.1.2

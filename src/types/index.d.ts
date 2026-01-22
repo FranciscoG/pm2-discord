@@ -61,7 +61,7 @@ export interface SendToDiscordResult {
 }
 
 export interface SendToDiscord {
-  (messages: DiscordMessage[], config: MessageQueueConfig): Promise<SendToDiscordResult>
+  (messages: DiscordMessage[], discord_url: string | null): Promise<SendToDiscordResult>
 }
 
 /**
@@ -76,16 +76,16 @@ export interface RequestHistoryEntry {
  * These config items are custom to pm2-discord
  */
 export interface MessageQueueConfig {
-  discord_url?: string | null,
-  rate_limit_messages?: number,
-  rate_limit_window_seconds?: number,
-  buffer?: boolean,
-  buffer_seconds?: number,
-  queue_max?: number
+  discord_url: string | null,
+  rate_limit_messages: number,
+  rate_limit_window_seconds: number,
+  buffer: boolean,
+  buffer_seconds: number,
+  queue_max: number,
 }
 
 export interface Config extends MessageQueueConfig {
-  process_name?: string | null
+  process_name: string | null
   log: boolean
   error: boolean
   kill: boolean
@@ -96,5 +96,6 @@ export interface Config extends MessageQueueConfig {
   "restart overlimit": boolean
   exit: boolean
   start: boolean
-  online: boolean
+  online: boolean,
+  format: boolean
 }

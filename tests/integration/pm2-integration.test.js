@@ -1,47 +1,16 @@
 const test = require('tape');
 const { execSync } = require('child_process');
 const { startMockDiscordServer, MODES } = require('./mock-discord-server');
+const { sleep, pm2Set, pm2Start, waitForRequests, pm2KillAll, pm2ResetConfig } = require('./utils');
 
 const APP_NAME = 'test-app';
 
-/**
- * @param {number} ms 
- * @returns {Promise<void>}
- */
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+// start fresh, kill everything from any previous runs. This uninstalls pm2-discord too.
+// however it doesn't reset any config items set previously, so we will do that manually below.
+pm2KillAll();
 
-/**
- * 
- * @param {string} key 
- * @param {string | number | boolean} value 
- * @returns {void}
- */
-function pm2Set(key, value) {
-	execSync(`npx pm2 set pm2-discord:${key} ${value}`, { stdio: 'inherit' });
-}
-
-function pm2Restart() {
-	execSync('npx pm2 restart pm2-discord', { stdio: 'inherit' });
-}
-
-/**
- * 
- * @param {Record<string, string | number>} envVars 
- * @returns {void}
- */
-function pm2Start(envVars) {
-	const envString = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join(' ');
-	execSync(`${envString} npx pm2 start ${__dirname}/test-app.js --name ${APP_NAME}`, { stdio: 'inherit' });
-}
-
-try {
-	// first kill any existing pm2 instance to start fresh. This should both stop
-	// and remove test-app and also uninstall pm2-discord module.
-	execSync('npx pm2 kill', { stdio: 'inherit' });
-} catch (e) {
-	// ignore - pm2 might not be running
-	console.log('PM2 kill step failed, continuing anyway...', e.message);
-}
+// this will remove all config settings set for pm2-discord
+pm2ResetConfig();
 
 // And then we re-install pm2-discord to ensure a clean state.
 // This one is important, if it fails, the test cannot continue.
@@ -63,13 +32,12 @@ test('Integration: success path with buffering + rate limiting', async function 
 	await sleep(6000);
 
 	// then kill the test app so it stops generating logs and allows any buffered messages to flush
-	// console.log('Stopping test-app at timestamp', new Date().toISOString());
-	execSync(`npx pm2 stop ${APP_NAME}`, { stdio: 'inherit' });
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
 
 	// wait to allow any remaining messages to flush
 	await sleep(4000);
 
-	const requests = mock.getRequests();
+	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
 
 	t.ok(requests.length > 0, 'mock server should receive requests');
 
@@ -101,12 +69,12 @@ test('Integration: handles 429 rate limit backoff', async function (t) {
 
 	await sleep(3500);
 
-	execSync(`npx pm2 stop ${APP_NAME}`, { stdio: 'inherit' });
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
 
 	// wait to allow any remaining messages to flush
 	await sleep(4000);
 
-	const requests = mock.getRequests();
+	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
 
 	// We expect at least one 429 to have been returned and the module to back off
 	// Since our mock always returns 429, we expect a small number of attempts respecting retry_after
@@ -120,7 +88,7 @@ test('Integration: handles 429 rate limit backoff', async function (t) {
 
 test('Integration: stops sending on 404 invalid webhook', async function (t) {
 	t.plan(2);
-	const mock = await startMockDiscordServer(0);
+	const mock = await startMockDiscordServer(8001);
 
 	mock.setMode(MODES.NOT_FOUND);
 
@@ -130,28 +98,71 @@ test('Integration: stops sending on 404 invalid webhook', async function (t) {
 
 	pm2Start({ INTERVAL_MS: 50 });
 
-	// Wait a bit to allow an initial attempt
+	// Wait a bit to allow test-app to generate some logs
 	await sleep(2500);
 
-	execSync(`npx pm2 stop ${APP_NAME}`, { stdio: 'inherit' });
+	// kill the test-app to stop log generation and signal flush
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
 
-	// wait to allow any remaining messages to flush
-	await sleep(4000);
+	// what should happen now is only 1 attempt is made to send to Discord.
+	// Discord will return a 404 which should stop pm2-discord from attempting again
 
-	const initialCount = mock.getRequests().length;
+	// this should just be 1
+	let requests = await waitForRequests(mock, { min: 1, timeoutMs: 5000, intervalMs: 500 });
+	const initialCount = requests.length;
 
-	// Wait longer and ensure no more attempts are made after 404
-	await sleep(2500);
 
-	const finalCount = mock.getRequests().length;
+	requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
+	const finalCount = requests.length;
 
-	t.ok(initialCount >= 1, 'should make at least one attempt');
-	t.equal(finalCount, initialCount, 'should stop attempting after 404');
+	t.ok(initialCount >= 1, `should make at least one attempt. Initial attempts: ${initialCount}`);
+	t.equal(finalCount, initialCount, `should stop attempting after 404. Final attempts: ${finalCount}`);
 	mock.server.close();
+});
+
+test('Integration: graceful shutdown flushes all messages', async function (t) {
+	t.plan(2);
+	const mock = await startMockDiscordServer(8002);
+
+	mock.setMode(MODES.SUCCESS);
+
+	const url = `http://127.0.0.1:${mock.port}/webhook/success`;
+	pm2Set('discord_url', url);
+	pm2Set('log', true);
+	pm2Set('buffer_seconds', 5); // Long buffer to ensure messages are pending on shutdown
+
+	pm2Start({ INTERVAL_MS: 100 });
+
+	// Let it generate some logs but don't wait long enough for natural flush
+	await sleep(2000);
+
+	console.log('About to stop test-app, mock requests so far:', mock.getRequests().length);
+
+	// Stop (SIGINT) instead of del to allow graceful shutdown
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
+
+	// Poll for flush completion so the mock server stays alive long enough
+	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
+
+	// Small grace period for any final in-flight send
+	await sleep(1000);
+
+	console.log('After shutdown, total requests received:', requests.length);
+	if (requests.length > 0) {
+		console.log('First request content length:', requests[0].body?.content?.length);
+	}
+
+	t.ok(requests.length > 0, 'should flush buffered messages on shutdown');
+	t.ok(requests.some(r => r.body && r.body.content), 'should contain message content');
+
+	mock.server.close();
+	// reset the buffer_seconds to default so other tests aren't affected
+	execSync(`npx pm2 unset pm2-discord:buffer_seconds`, { stdio: 'inherit' });
 });
 
 test.onFinish(() => {
 	try {
+		// kill will stop and delete all pm2 processes and uninstall modules
 		execSync('npx pm2 kill', { stdio: 'inherit' });
 	} catch (e) {
 		// ignore

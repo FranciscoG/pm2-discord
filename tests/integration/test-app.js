@@ -10,7 +10,7 @@ function logOnce() {
 	const now = new Date();
 	const ts = now.toISOString();
 	// Emit a line similar to PM2 logs (with timestamp)
-	console.log(`${ts} - test-app log line ${counter}`);
+	console.log(`${ts} - test-app log line ${counter} at interval ${intervalMs}ms`);
 }
 
 setInterval(logOnce, intervalMs);

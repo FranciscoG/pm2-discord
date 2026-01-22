@@ -18,8 +18,6 @@ async function parseIncomingLog(logMessage: string): Promise<LogMessage> {
   let description = null;
   let timestamp = null;
 
-  // a logMessage looks like this: 2026-01-21T20:41:41.866Z - test-app log line 89
-
   if (typeof logMessage === "string") {
     // Parse date on begin (if exists)
     const dateRegex = /([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{1,2}:[0-9]{2}:[0-9]{2}(\.[0-9]{3})? [+\-]?[0-9]{1,2}:[0-9]{2}(\.[0-9]{3})?)[:\-\s]+/;
@@ -36,6 +34,10 @@ async function parseIncomingLog(logMessage: string): Promise<LogMessage> {
       // Use whole original message, strip ANSI codes
       description = stripAnsi(logMessage);
     }
+  }
+
+  if (config.format && description) {
+    description = "```" + description + "```"
   }
 
   return {
@@ -77,10 +79,10 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   }
 
   if (!config.discord_url) {
-    // we can't use this module without a discord_url so it's not worth continuing
-    console.warn('pm2-discord: "discord_url" is required and is undefined.')
-    console.warn('pm2-discord: Set the Discord URL using the following command:')
-    console.warn('pm2-discord: `pm2 set pm2-discord:discord_url DISCORD_WEBHOOK_URL`')
+    // we can't use this module without a discord_url so we should exit
+    console.error('pm2-discord: "discord_url" is required and is undefined.')
+    console.error('pm2-discord: Set the Discord URL using the following command:')
+    console.error('pm2-discord: `pm2 set pm2-discord:discord_url DISCORD_WEBHOOK_URL`')
     process.exit(1);
   }
 
@@ -145,7 +147,8 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
 
   // Listen for PM2 events
   bus.on('process:event', function (data: BusData & { event: string }) {
-    if (!config[data.event as keyof Config]) { return; } // This event type is disabled by configuration.
+    const setting = config[data.event as keyof Config];
+    if (typeof setting === 'boolean' && !setting) { return; } // This event type is disabled by configuration.
     if (!checkProcessName(data)) { return; }
 
     addMessage({

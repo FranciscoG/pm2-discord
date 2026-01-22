@@ -15,20 +15,23 @@ function parseRateLimitHeaders(headers) {
         bucket: headers.get('x-ratelimit-bucket') || undefined
     };
 }
+function getUserName(messages) {
+    const names = new Set(messages.map(msg => msg.name.trim()).filter(name => name.length > 0));
+    return Array.from(names).join(', ') || 'PM2 Discord Bot';
+}
 /**
  * Send messages to Discord's Incoming Webhook with rate limit handling
  */
-export async function sendToDiscord(messages, config) {
+export async function sendToDiscord(messages, discord_url) {
     if (!messages || messages.length === 0) {
         return {
             success: true,
             rateLimitInfo: {}
         };
     }
-    const { discord_url } = config;
     // If a Discord URL is not set, we do not want to continue and notify the user that it needs to be set
     if (!discord_url) {
-        console.error("There is no Discord URL set, please set the Discord URL: 'pm2 set pm2-discord:discord_url https://[discord_url]'");
+        console.error("There is no Discord URL set in the configuration.");
         return {
             success: false,
             error: "Discord URL not configured",
@@ -37,7 +40,9 @@ export async function sendToDiscord(messages, config) {
     }
     // The JSON payload to send to the Webhook
     const payload = {
-        content: messages.reduce((acc, msg) => acc += msg.description + '\n', '')
+        content: messages.reduce((acc, msg) => acc + (msg.description || '') + '\n', ''),
+        // because multiple messages from multiple processes can be batched, set username to combined names
+        username: getUserName(messages),
     };
     // Options for the post request
     const options = {

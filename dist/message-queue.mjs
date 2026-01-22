@@ -110,9 +110,11 @@ export class MessageQueue {
         }
         // If in backoff, schedule a check for when it expires
         if (!this.canSendNow()) {
+            if (this.flushInterval) {
+                this.stopInterval();
+            }
             const delay = this.getDelayUntilNextSend();
             setTimeout(() => this.startInterval(), delay);
-            this.stopInterval();
             return;
         }
         // If queue is empty, stop the interval
@@ -130,7 +132,7 @@ export class MessageQueue {
             // Record the request
             this.recordRequest();
             // Send to Discord
-            const result = await this.sender(messagesToSend, this.config);
+            const result = await this.sender(messagesToSend, this.config.discord_url);
             // Update Discord rate limit info if provided
             if (result.rateLimitInfo) {
                 this.discordRateLimit = result.rateLimitInfo;
@@ -212,15 +214,22 @@ export class MessageQueue {
      * Messages will be sent at the throttled rate
      */
     addMessage(message) {
-        if (this.messageQueue.length >= (this.config.queue_max ?? 100)) {
-            console.warn('pm2-discord: Queue full, dropping oldest messages');
-            this.messageQueue.shift();
-        }
         const bufferEnabled = this.config.buffer ?? true;
         const bufferSeconds = this.config.buffer_seconds ?? 1;
         if (bufferEnabled) {
             // Add to current buffer
             this.currentBuffer.push(message);
+            // Check if buffer has reached queue_max - if so, flush immediately
+            if (this.currentBuffer.length >= (this.config.queue_max ?? 100)) {
+                console.log('pm2-discord: Buffer reached queue_max, flushing immediately.');
+                // Cancel the timer since we're flushing now
+                if (this.bufferTimer) {
+                    clearTimeout(this.bufferTimer);
+                    this.bufferTimer = null;
+                }
+                this.flushBuffer();
+                return;
+            }
             // Reset the buffer timer
             if (this.bufferTimer) {
                 clearTimeout(this.bufferTimer);
