@@ -2,12 +2,9 @@ import pm2 from 'pm2';
 import pmx from 'pmx';
 import { addMessage } from './message-handler.mjs';
 import stripAnsi from 'strip-ansi';
-import { defaultConfig } from './config.mjs';
-const moduleConfig = pmx.initModule();
-console.log('pm2-discord: Loading module configuration:', moduleConfig);
-// Merge configurations, with moduleConfig taking precedence
-const config = { ...defaultConfig, ...moduleConfig };
-console.log('pm2-discord: Final configuration:', config);
+import { loadConfig } from './config.mjs';
+pmx.initModule();
+const config = loadConfig();
 /**
  * PM2 is storing log messages with date in format "YYYY-MM-DD hh:mm:ss +-zz:zz"
  * Parses this date from begin of message
@@ -63,11 +60,15 @@ function checkProcessName(data) {
 }
 // Start listening on the PM2 BUS
 pm2.launchBus(function (err, bus) {
+    if (err) {
+        console.error('pm2-discord: Error launching PM2 bus:', err);
+        process.exit(2);
+    }
     if (!config.discord_url) {
         // we can't use this module without a discord_url so it's not worth continuing
-        console.warn('pm2-discord: "discord_url" is undefined in module configuration. No messages will be sent.');
+        console.warn('pm2-discord: "discord_url" is required and is undefined.');
         console.warn('pm2-discord: Set the Discord URL using the following command:');
-        console.warn('pm2-discord: `pm2 set pm2-discord:discord_url YOUR_URL`');
+        console.warn('pm2-discord: `pm2 set pm2-discord:discord_url DISCORD_WEBHOOK_URL`');
         process.exit(1);
     }
     // Listen for process logs

@@ -4,14 +4,11 @@ import pm2 from 'pm2';
 import pmx from 'pmx';
 import { addMessage } from './message-handler.mjs';
 import stripAnsi from 'strip-ansi';
-import { defaultConfig } from './config.mjs';
+import { loadConfig } from './config.mjs';
 
-const moduleConfig = pmx.initModule();
-console.log('pm2-discord: Loading module configuration:', moduleConfig);
+pmx.initModule();
 
-// Merge configurations, with moduleConfig taking precedence
-const config: Config = { ...defaultConfig, ...moduleConfig } as Config;
-console.log('pm2-discord: Final configuration:', config);
+const config = loadConfig();
 
 /**
  * PM2 is storing log messages with date in format "YYYY-MM-DD hh:mm:ss +-zz:zz"

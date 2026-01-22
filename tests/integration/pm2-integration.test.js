@@ -20,7 +20,9 @@ function pm2Set(key, value) {
 	execSync(`npx pm2 set pm2-discord:${key} ${value}`, { stdio: 'inherit' });
 }
 
-// pm2 set pm2-discord:discord_url http://127.0.0.1:8000/webhook/success
+function pm2Restart() {
+	execSync('npx pm2 restart pm2-discord', { stdio: 'inherit' });
+}
 
 /**
  * 
@@ -45,7 +47,7 @@ try {
 // This one is important, if it fails, the test cannot continue.
 execSync('npx pm2 install .', { stdio: 'inherit' });
 
-test.only('Integration: success path with buffering + rate limiting', async function (t) {
+test('Integration: success path with buffering + rate limiting', async function (t) {
 	t.plan(3);
 	const mock = await startMockDiscordServer(8000);
 

@@ -1,4 +1,4 @@
-import { Config, MessageQueueConfig } from './types/index.js';
+import type { Config, MessageQueueConfig } from './types/index.js';
 
 export const defaultConfig: Config = {
   "discord_url": null,
@@ -24,4 +24,17 @@ export const defaultConfig: Config = {
 export function getConfig(processName: string, item: keyof MessageQueueConfig, config: Config) {
   // @ts-expect-error -- dynamic key access
   return config[`${item}-${processName}`] ?? config[item];
+}
+
+export function loadConfig(): Config {
+  // Read config directly from environment (PM2 sets this for modules)
+  let moduleConfig: Record<string, any> = {};
+  try {
+    if (process.env['pm2-discord']) {
+      moduleConfig = JSON.parse(process.env['pm2-discord']);
+    }
+  } catch (e) {
+    console.error('pm2-discord: Error parsing module config from env:', e);
+  }
+  return { ...defaultConfig, ...moduleConfig } as Config;
 }

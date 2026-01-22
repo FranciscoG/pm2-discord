@@ -6,7 +6,6 @@ import { getConfig } from './config.mjs';
 const messageQueues = new Map<string, MessageQueue>();
 
 export function addMessage(message: DiscordMessage, moduleConfig: Config): void {
-	console.log('pm2-discord: Adding message to queue:', message);
 	const processName = message.name;
 	const discordUrl = getConfig(processName, 'discord_url', moduleConfig);
 
@@ -34,8 +33,8 @@ export function addMessage(message: DiscordMessage, moduleConfig: Config): void 
 	messageQueues.get(discordUrl)!.addMessage(message);
 }
 
-// process.on('SIGINT', () => {
-//   // Flush all queues before exit
-// 	console.log('pm2-discord: Caught SIGINT, flushing message queues before exit.');
-//   Array.from(messageQueues.values()).forEach(q => q.flushBuffer());
-// });
+process.on('SIGINT', () => {
+  // Flush all queues before exit
+	console.log('pm2-discord: Caught SIGINT, flushing message queues before exit.');
+  Array.from(messageQueues.values()).forEach(q => q.flushBuffer());
+});

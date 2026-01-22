@@ -22,3 +22,16 @@ export function getConfig(processName, item, config) {
     // @ts-expect-error -- dynamic key access
     return config[`${item}-${processName}`] ?? config[item];
 }
+export function loadConfig() {
+    // Read config directly from environment (PM2 sets this for modules)
+    let moduleConfig = {};
+    try {
+        if (process.env['pm2-discord']) {
+            moduleConfig = JSON.parse(process.env['pm2-discord']);
+        }
+    }
+    catch (e) {
+        console.error('pm2-discord: Error parsing module config from env:', e);
+    }
+    return { ...defaultConfig, ...moduleConfig };
+}
