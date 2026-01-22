@@ -38,26 +38,6 @@
     "pmx": "1.6.8",
     "strip-ansi": "7.1.2"
   },
-  "config": {
-    "discord_url": null,
-    "process_name": null,
-    "log": true,
-    "error": false,
-    "kill": true,
-    "exception": true,
-    "restart": false,
-    "delete": false,
-    "stop": true,
-    "restart overlimit": true,
-    "exit": false,
-    "start": false,
-    "online": false,
-    "buffer": true,
-    "buffer_seconds": 1,
-    "queue_max": 100,
-    "rate_limit_messages": 30,
-    "rate_limit_window_seconds": 60
-  },
   "devDependencies": {
     "@types/axon": "^2.0.5",
     "@types/node": "^16.0.0",

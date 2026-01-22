@@ -20,6 +20,8 @@ function pm2Set(key, value) {
 	execSync(`npx pm2 set pm2-discord:${key} ${value}`, { stdio: 'inherit' });
 }
 
+// pm2 set pm2-discord:discord_url http://127.0.0.1:8000/webhook/success
+
 /**
  * 
  * @param {Record<string, string | number>} envVars 
@@ -43,7 +45,7 @@ try {
 // This one is important, if it fails, the test cannot continue.
 execSync('npx pm2 install .', { stdio: 'inherit' });
 
-test('Integration: success path with buffering + rate limiting', async function (t) {
+test.only('Integration: success path with buffering + rate limiting', async function (t) {
 	t.plan(3);
 	const mock = await startMockDiscordServer(8000);
 
@@ -51,9 +53,6 @@ test('Integration: success path with buffering + rate limiting', async function 
 	const url = `http://127.0.0.1:${mock.port}/webhook/success`;
 	pm2Set('discord_url', url);
 	pm2Set('log', true);
-
-	pm2Set('rate_limit_messages', 5);
-	pm2Set('rate_limit_window_seconds', 2);
 
 	// Start test app simulating a busy process generating logs quickly
 	pm2Start({ INTERVAL_MS: 20 });

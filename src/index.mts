@@ -1,12 +1,17 @@
-import type { LogMessage, Process, BusData } from './types/index.js';
+import type { LogMessage, Process, BusData, Config } from './types/index.js';
 import type { SubEmitterSocket } from 'axon'
 import pm2 from 'pm2';
 import pmx from 'pmx';
 import { addMessage } from './message-handler.mjs';
 import stripAnsi from 'strip-ansi';
+import { defaultConfig } from './config.mjs';
 
-// initModule will read the configuration from the package.json file
 const moduleConfig = pmx.initModule();
+console.log('pm2-discord: Loading module configuration:', moduleConfig);
+
+// Merge configurations, with moduleConfig taking precedence
+const config: Config = { ...defaultConfig, ...moduleConfig } as Config;
+console.log('pm2-discord: Final configuration:', config);
 
 /**
  * PM2 is storing log messages with date in format "YYYY-MM-DD hh:mm:ss +-zz:zz"
@@ -52,14 +57,14 @@ function parseProcessName(process: Process) {
   return process.name + suffix;
 }
 
-function shouldProcess(data: BusData): boolean {
-  // Ignore messages of own module.
+function checkProcessName(data: BusData): boolean {
+  // We don't want to publish messages from pm2-discord itself
   if (data.process.name === 'pm2-discord') { return false; }
 
   // if a specific process name was specified then we check to make sure only 
   // that process gets output
-  if (typeof moduleConfig.process_name === 'string' &&
-    data.process.name !== moduleConfig.process_name) {
+  if (typeof config.process_name === 'string' &&
+    data.process.name !== config.process_name) {
     return false
   }
 
@@ -69,10 +74,23 @@ function shouldProcess(data: BusData): boolean {
 // Start listening on the PM2 BUS
 pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
 
+  if (err) {
+    console.error('pm2-discord: Error launching PM2 bus:', err);
+    process.exit(2);
+  }
+
+  if (!config.discord_url) {
+    // we can't use this module without a discord_url so it's not worth continuing
+    console.warn('pm2-discord: "discord_url" is required and is undefined.')
+    console.warn('pm2-discord: Set the Discord URL using the following command:')
+    console.warn('pm2-discord: `pm2 set pm2-discord:discord_url DISCORD_WEBHOOK_URL`')
+    process.exit(1);
+  }
+
   // Listen for process logs
-  if (moduleConfig.log) {
+  if (config.log) {
     bus.on('log:out', async function (data: BusData) {
-      if (!shouldProcess(data)) { return; }
+      if (!checkProcessName(data)) { return; }
 
       const parsedLog = await parseIncomingLog(data.data || '');
       addMessage({
@@ -80,14 +98,14 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
         event: 'log',
         description: parsedLog.description,
         timestamp: parsedLog.timestamp,
-      });
+      }, config);
     });
   }
 
   // Listen for process errors
-  if (moduleConfig.error) {
+  if (config.error) {
     bus.on('log:err', async function (data: BusData) {
-      if (!shouldProcess(data)) { return; }
+      if (!checkProcessName(data)) { return; }
 
       const parsedLog = await parseIncomingLog(data.data || '');
       addMessage({
@@ -95,26 +113,26 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
         event: 'error',
         description: parsedLog.description,
         timestamp: parsedLog.timestamp,
-      });
+      }, config);
     });
   }
 
   // Listen for PM2 kill
-  if (moduleConfig.kill) {
+  if (config.kill) {
     bus.on('pm2:kill', function (data: any) {
       addMessage({
         name: 'PM2',
         event: 'kill',
         description: data.msg,
         timestamp: Math.floor(Date.now() / 1000),
-      });
+      }, config);
     });
   }
 
   // Listen for process exceptions
-  if (moduleConfig.exception) {
+  if (config.exception) {
     bus.on('process:exception', async function (data: BusData & { data: any }) {
-      if (!shouldProcess(data)) { return; }
+      if (!checkProcessName(data)) { return; }
 
       // If it is instance of Error, use it. If type is unknown, stringify it.
       const rawDescription = (data.data && data.data.message) ? (data.data.code || '') + data.data.message : JSON.stringify(data.data);
@@ -124,20 +142,20 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
         event: 'exception',
         description: description,
         timestamp: Math.floor(Date.now() / 1000),
-      });
+      }, config);
     });
   }
 
   // Listen for PM2 events
   bus.on('process:event', function (data: BusData & { event: string }) {
-    if (!moduleConfig[data.event]) { return; } // This event type is disabled by configuration.
-    if (!shouldProcess(data)) { return; }
+    if (!config[data.event as keyof Config]) { return; } // This event type is disabled by configuration.
+    if (!checkProcessName(data)) { return; }
 
     addMessage({
       name: parseProcessName(data.process),
       event: data.event,
       description: `The following event has occurred on the PM2 process ${data.process.name}: ${data.event}`,
       timestamp: Math.floor(Date.now() / 1000),
-    });
+    }, config);
   });
 });

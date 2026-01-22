@@ -1,20 +1,14 @@
-import type { DiscordMessage, MessageQueueConfig } from './types/index.js';
+import type { Config, DiscordMessage, MessageQueueConfig } from './types/index.js';
 import { MessageQueue } from './message-queue.mjs';
 import { sendToDiscord } from './send-to-discord.mjs';
-import pmx from 'pmx';
-
-// initModule will read the configuration from the package.json file
-const moduleConfig = pmx.initModule();
-
-function getConfig(processName: string, item: keyof MessageQueueConfig) {
-	return moduleConfig[`${item}-${processName}`] ?? moduleConfig[item];
-}
+import { getConfig } from './config.mjs';
 
 const messageQueues = new Map<string, MessageQueue>();
 
-export function addMessage(message: DiscordMessage): void {
+export function addMessage(message: DiscordMessage, moduleConfig: Config): void {
+	console.log('pm2-discord: Adding message to queue:', message);
 	const processName = message.name;
-	const discordUrl = getConfig(processName, 'discord_url');
+	const discordUrl = getConfig(processName, 'discord_url', moduleConfig);
 
 	if (typeof discordUrl !== 'string') {
 		console.warn('pm2-discord: "discord_url" is undefined. No message sent.')
@@ -26,12 +20,13 @@ export function addMessage(message: DiscordMessage): void {
 	if (!messageQueues.has(discordUrl)) {
 		const config: MessageQueueConfig = {
 			discord_url: discordUrl,
-			rate_limit_messages: Number(getConfig(processName, 'rate_limit_messages')),
-			rate_limit_window_seconds: Number(getConfig(processName, 'rate_limit_window_seconds')),
-			buffer: Boolean(getConfig(processName, 'buffer')),
-			buffer_seconds: Number(getConfig(processName, 'buffer_seconds')),
-			queue_max: Number(getConfig(processName, 'queue_max')),
+			rate_limit_messages: Number(getConfig(processName, 'rate_limit_messages', moduleConfig)),
+			rate_limit_window_seconds: Number(getConfig(processName, 'rate_limit_window_seconds', moduleConfig)),
+			buffer: Boolean(getConfig(processName, 'buffer', moduleConfig)),
+			buffer_seconds: Number(getConfig(processName, 'buffer_seconds', moduleConfig)),
+			queue_max: Number(getConfig(processName, 'queue_max', moduleConfig)),
 		}
+		console.log(`pm2-discord: Creating message queue with config:`, config);
 
 		messageQueues.set(discordUrl, new MessageQueue(config, sendToDiscord));
 	}
@@ -39,7 +34,8 @@ export function addMessage(message: DiscordMessage): void {
 	messageQueues.get(discordUrl)!.addMessage(message);
 }
 
-process.on('SIGINT', () => {
-  // Flush all queues before exit
-  Array.from(messageQueues.values()).forEach(q => q.flushBuffer());
-});
+// process.on('SIGINT', () => {
+//   // Flush all queues before exit
+// 	console.log('pm2-discord: Caught SIGINT, flushing message queues before exit.');
+//   Array.from(messageQueues.values()).forEach(q => q.flushBuffer());
+// });
