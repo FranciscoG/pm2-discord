@@ -1,3 +1,4 @@
+import { debug } from './debug.mjs';
 // Rate limit constants
 // Discord webhooks have a specific limit: 30 requests per 60 seconds = 0.5 req/sec
 const WEBHOOK_RATE_LIMIT = 30;
@@ -16,6 +17,7 @@ export class MessageQueue {
         this.currentBuffer = [];
         // Track if we're in a rate-limited backoff period
         this.rateLimitedUntil = 0;
+        this.characterCount = 0;
         this.config = config;
         this.sender = sender;
         // Calculate throttle settings from user config
@@ -190,6 +192,7 @@ export class MessageQueue {
      * Flush the current buffer by combining messages and adding to queue
      */
     flushBuffer() {
+        this.characterCount = 0;
         if (this.currentBuffer.length === 0) {
             return;
         }
@@ -197,7 +200,7 @@ export class MessageQueue {
         const combinedMessage = {
             name: this.currentBuffer[0].name,
             event: this.currentBuffer[0].event,
-            description: this.currentBuffer.map(m => m.description).join('\n'),
+            description: this.currentBuffer.map(m => m.description || '').join('\n'),
             timestamp: this.currentBuffer[0].timestamp
         };
         // Add combined message to the queue
@@ -209,6 +212,9 @@ export class MessageQueue {
             this.startInterval();
         }
     }
+    shouldFlushBuffer() {
+        return this.characterCount >= 2000 || this.currentBuffer.length >= (this.config.queue_max ?? 100);
+    }
     /**
      * Add a message to the queue
      * Messages will be sent at the throttled rate
@@ -216,11 +222,29 @@ export class MessageQueue {
     addMessage(message) {
         const bufferEnabled = this.config.buffer ?? true;
         const bufferSeconds = this.config.buffer_seconds ?? 1;
+        debug('Buffer is set to:', bufferEnabled, 'Buffer seconds:', bufferSeconds);
+        let newMessageLength = message.description?.length ?? 0;
+        // Truncate single messages that exceed the limit
+        if (newMessageLength > 2000) {
+            console.warn('pm2-discord: Single message exceeds 2000 character limit, truncating...');
+            message.description = message.description?.substring(0, 1997) + '...';
+            // Recalculate length after truncation
+            newMessageLength = message.description?.length ?? 0;
+        }
         if (bufferEnabled) {
+            // if adding this new message would exceed Discord's 2000 character limit, flush current buffer first
+            // Account for the newline character that will be added when joining (unless buffer is empty)
+            const newlineLength = this.currentBuffer.length > 0 ? 1 : 0;
+            if (this.characterCount + newMessageLength + newlineLength > 2000) {
+                console.log('pm2-discord: Adding this message would exceed 2000 character limit, flushing current buffer first.');
+                this.flushBuffer();
+            }
             // Add to current buffer
             this.currentBuffer.push(message);
+            // Add message length + newline length (for the next message that will be added)
+            this.characterCount += newMessageLength;
             // Check if buffer has reached queue_max - if so, flush immediately
-            if (this.currentBuffer.length >= (this.config.queue_max ?? 100)) {
+            if (this.shouldFlushBuffer()) {
                 console.log('pm2-discord: Buffer reached queue_max, flushing immediately.');
                 // Cancel the timer since we're flushing now
                 if (this.bufferTimer) {

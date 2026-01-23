@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { debug } from './debug.mjs';
 /**
  * Parse rate limit headers from Discord API response
  */
@@ -40,7 +41,7 @@ export async function sendToDiscord(messages, discord_url) {
     }
     // The JSON payload to send to the Webhook
     const payload = {
-        content: messages.reduce((acc, msg) => acc + (msg.description || '') + '\n', ''),
+        content: messages.map(msg => msg.description || '').join('\n'),
         // because multiple messages from multiple processes can be batched, set username to combined names
         username: getUserName(messages),
     };
@@ -51,9 +52,9 @@ export async function sendToDiscord(messages, discord_url) {
         headers: { 'Content-Type': 'application/json' }
     };
     try {
-        console.log('Sending to Discord at timestamp', new Date().toISOString());
+        debug('Sending to Discord with payload:', payload);
         const res = await fetch(discord_url, options);
-        console.log(`Discord webhook responded with status ${res.status}`);
+        debug(`Discord webhook responded with status ${res.status}`);
         // Parse rate limit headers from response
         const rateLimitInfo = parseRateLimitHeaders(res.headers);
         // Handle 429 Too Many Requests

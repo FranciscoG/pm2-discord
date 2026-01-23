@@ -269,12 +269,14 @@ export class MessageQueue {
     const bufferSeconds = this.config.buffer_seconds ?? 1;
 
     debug('Buffer is set to:', bufferEnabled, 'Buffer seconds:', bufferSeconds);
-    const newMessageLength = message.description?.length ?? 0;
+    let newMessageLength = message.description?.length ?? 0;
 
     // Truncate single messages that exceed the limit
     if (newMessageLength > 2000) {
       console.warn('pm2-discord: Single message exceeds 2000 character limit, truncating...');
       message.description = message.description?.substring(0, 1997) + '...';
+      // Recalculate length after truncation
+      newMessageLength = message.description?.length ?? 0;
     }
     
     if (bufferEnabled) {
