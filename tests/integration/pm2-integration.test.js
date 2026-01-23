@@ -12,9 +12,11 @@ pm2KillAll();
 // this will remove all config settings set for pm2-discord
 pm2ResetConfig();
 
+pm2Set('format', false); // disable rich formatting for easier testing
+
 // And then we re-install pm2-discord to ensure a clean state.
 // This one is important, if it fails, the test cannot continue.
-execSync('npx pm2 install .', { stdio: 'inherit' });
+execSync('PM2_DISCORD_DEBUG=1 npx pm2 install .', { stdio: 'inherit' });
 
 test('Integration: success path with buffering + rate limiting', async function (t) {
 	t.plan(3);
@@ -157,6 +159,135 @@ test('Integration: graceful shutdown flushes all messages', async function (t) {
 
 	mock.server.close();
 	// reset the buffer_seconds to default so other tests aren't affected
+	execSync(`npx pm2 unset pm2-discord:buffer_seconds`, { stdio: 'inherit' });
+});
+
+test('Integration: handles global rate limit (429 with global scope)', async function (t) {
+	t.plan(2);
+	const mock = await startMockDiscordServer(8003);
+
+	mock.setMode(MODES.GLOBAL_RATE_LIMIT);
+	mock.setRateLimitConfig({ retry_after: 1.0, scope: 'global' });
+
+	const url = `http://127.0.0.1:${mock.port}/webhook/global-limit`;
+	pm2Set('discord_url', url);
+	pm2Set('log', true);
+
+	pm2Start({ INTERVAL_MS: 100 });
+
+	await sleep(2000);
+
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
+
+	// wait for any pending messages to flush
+	await sleep(3000);
+
+	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
+
+	// With global rate limit, we expect the module to back off and not spam requests
+	// Should respect the global rate limit and make fewer attempts
+	t.ok(requests.length >= 1, 'should make at least one attempt');
+	t.ok(requests.length <= 3, 'should respect global rate limit and limit request attempts');
+
+	mock.server.close();
+});
+
+test('Integration: buffering disabled - sends messages immediately', async function (t) {
+	t.plan(3);
+	const mock = await startMockDiscordServer(8004);
+
+	mock.setMode(MODES.SUCCESS);
+
+	const url = `http://127.0.0.1:${mock.port}/webhook/no-buffer`;
+	pm2Set('discord_url', url);
+	pm2Set('log', true);
+	pm2Set('buffer', false);  // Disable buffering
+
+	await sleep(1000);
+
+	pm2Start({ INTERVAL_MS: 100 });
+
+	// With buffering disabled, messages should be sent immediately to the queue
+	// But rate limiting (0.5 req/sec) still applies
+	// Give more time for module to start and process initial messages
+	await sleep(5000);
+
+	let requests = await waitForRequests(mock, { min: 1, timeoutMs: 5000, intervalMs: 200 });
+	const requestsAfter5s = requests.length;
+
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
+
+	await sleep(2000);
+
+	requests = await waitForRequests(mock, { min: requestsAfter5s, timeoutMs: 6000, intervalMs: 500 });
+	const totalRequests = requests.length;
+
+	// Without buffering, each message goes directly to queue and gets processed at rate limit
+	// So we expect individual messages, not combined ones
+	t.ok(requestsAfter5s >= 1, `should receive at least 1 request in 5s (got ${requestsAfter5s})`);
+
+	// Check that messages are not combined (each should be individual)
+	const allIndividual = requests.every(r => {
+		const lines = r.body?.content?.trim().split('\n').filter(Boolean) || [];
+		return lines.length === 1;
+	});
+	t.ok(allIndividual, 'messages should not be combined when buffering is disabled');
+
+	// Rate limiting should still work - max ~0.5 req/sec for 5 seconds total = ~2-3 requests
+	t.ok(totalRequests <= 3, `should respect rate limiting (got ${totalRequests} requests)`);
+
+	mock.server.close();
+	// Reset buffer setting
+	execSync(`npx pm2 unset pm2-discord:buffer`, { stdio: 'inherit' });
+});
+
+test('Integration: respects 2000 character limit in buffered messages', async function (t) {
+	t.plan(4);
+	const mock = await startMockDiscordServer(8005);
+
+	mock.setMode(MODES.SUCCESS);
+
+	const url = `http://127.0.0.1:${mock.port}/webhook/char-limit`;
+	pm2Set('discord_url', url);
+	pm2Set('log', true);
+	pm2Set('buffer', true);
+	pm2Set('buffer_seconds', 2);
+
+	await sleep(1000);
+
+	pm2Start({ INTERVAL_MS: 50 }); // Generate logs quickly to fill buffer
+
+	// Let it run long enough to generate many messages that would exceed 2000 chars if combined
+	await sleep(4000);
+
+	execSync(`npx pm2 del ${APP_NAME}`, { stdio: 'inherit' });
+
+	// Wait for final flush
+	await sleep(3000);
+
+	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
+
+	t.ok(requests.length > 0, 'should receive at least one request');
+
+	// Check that no single request exceeds 2000 characters
+	const exceedsLimit = requests.some(r => {
+		const contentLength = r.body?.content?.length ?? 0;
+		return contentLength > 2000;
+	});
+	t.notOk(exceedsLimit, 'no request should exceed 2000 character limit');
+
+	// Check that we have multiple requests (proving buffering was split)
+	t.ok(requests.length >= 2, 'should have multiple requests due to character limit splitting');
+
+	// Verify all requests with content are under the limit
+	const allValid = requests.every(r => {
+		const contentLength = r.body?.content?.length ?? 0;
+		return contentLength <= 2000;
+	});
+	t.ok(allValid, 'all requests should have content within 2000 character limit');
+
+	mock.server.close();
+	// Reset settings
 	execSync(`npx pm2 unset pm2-discord:buffer_seconds`, { stdio: 'inherit' });
 });
 

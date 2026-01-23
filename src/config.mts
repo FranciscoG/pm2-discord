@@ -1,4 +1,5 @@
 import type { Config, MessageQueueConfig } from './types/index.js';
+import { debug } from './debug.mjs'; 
 
 export const defaultConfig: Config = {
   // these are 
@@ -37,6 +38,7 @@ function clamp(num: number, min: number, max: number): number {
 export function loadConfig(): Config {
   // Read config directly from environment (PM2 sets this for modules)
   let moduleConfig: Partial<Config> = {};
+  debug(`process.env['pm2-discord'] = ${process.env['pm2-discord']}`)
   try {
     if (process.env['pm2-discord']) {
       moduleConfig = JSON.parse(process.env['pm2-discord']);
@@ -44,13 +46,29 @@ export function loadConfig(): Config {
   } catch (e) {
     console.error('pm2-discord: Error parsing module config from env:', e);
   }
-  const finalConfig = { ...defaultConfig, ...moduleConfig } as Config;
 
+  // need to convert values to correct types
+  for (const key in moduleConfig) {
+    const value = moduleConfig[key as keyof Config];
+    if (value === 'true') {
+      moduleConfig[key as keyof Config] = true as any;
+    } else if (value === 'false') {
+      moduleConfig[key as keyof Config] = false as any;
+    } else if (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value))) {
+      moduleConfig[key as keyof Config] = Number(value.trim()) as any;
+    }
+  }
+
+  debug('moduleConfig from env with corrected types:', moduleConfig)
+
+  const finalConfig = { ...defaultConfig, ...moduleConfig } as Config;
+  
   // buffer seconds can be between 1 and 5, inclusive
   finalConfig.buffer_seconds = clamp(finalConfig.buffer_seconds, 1, 5);
-
+  
   // queue max can be between 10 and 100, inclusive
   finalConfig.queue_max = clamp(finalConfig.queue_max, 10, 100);
-
+  
+  debug('finalConfig after merge and clamp:', finalConfig)
   return finalConfig;
 }

@@ -62,7 +62,9 @@ function pm2ResetConfig() {
 	const configKeys = [
 		'discord_url',
 		'log',
-		'buffer_seconds'
+		'buffer_seconds',
+		'buffer',
+		'queue_max',
 	];
 	for (const key of configKeys) {
 		try {
