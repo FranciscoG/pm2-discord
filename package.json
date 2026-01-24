@@ -8,9 +8,8 @@
   },
   "scripts": {
     "test": "npm run build && NODE_ENV=test tape 'tests/unit/*-test.mjs'",
-    "test:integration": "npm run build && tape 'tests/integration/*.test.js'",
-    "build": "tsc",
-    "prepublishOnly": "tsc",
+    "test:integration": "npm run build && NODE_ENV=test tape 'tests/integration/*.test.js'",
+    "build": "rm -rf dist && tsc",
     "watch": "tsc -w"
   },
   "repository": {

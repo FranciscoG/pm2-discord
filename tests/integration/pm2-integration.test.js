@@ -16,7 +16,7 @@ pm2Set('format', false); // disable rich formatting for easier testing
 
 // And then we re-install pm2-discord to ensure a clean state.
 // This one is important, if it fails, the test cannot continue.
-execSync('PM2_DISCORD_DEBUG=1 npx pm2 install .', { stdio: 'inherit' });
+execSync('PM2_DISCORD_DEBUG=1 NODE_ENV=test npx pm2 install .', { stdio: 'inherit' });
 
 test('Integration: success path with buffering + rate limiting', async function (t) {
 	t.plan(3);

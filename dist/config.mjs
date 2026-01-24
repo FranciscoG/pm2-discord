@@ -5,7 +5,6 @@ const MAX_BUFFER_SECONDS = 5;
 const MIN_QUEUE_MAX = 10;
 const MAX_QUEUE_MAX = 100;
 export const defaultConfig = {
-    // Event subscriptions - which PM2 events to forward to Discord
     "log": true,
     "error": false,
     "kill": true,
@@ -17,7 +16,6 @@ export const defaultConfig = {
     "exit": false,
     "start": false,
     "online": false,
-    // Custom messaging options
     "process_name": null,
     "discord_url": null,
     "buffer": true,
@@ -27,10 +25,6 @@ export const defaultConfig = {
     "rate_limit_window_seconds": 60,
     "format": true
 };
-export function getConfigValue(processName, item, config) {
-    // @ts-expect-error -- dynamic key access
-    return config[`${item}-${processName}`] ?? config[item];
-}
 function clamp(num, min, max) {
     return Math.min(Math.max(num, min), max);
 }
@@ -71,7 +65,11 @@ export function convertConfigValue(key, value) {
         return value;
     return value;
 }
+let cachedConfig = null;
 export function loadConfig() {
+    if (cachedConfig) {
+        return cachedConfig;
+    }
     // Read config directly from environment (PM2 sets this for modules)
     const rawConfig = {};
     debug(`process.env['pm2-discord'] = ${process.env['pm2-discord']}`);
@@ -102,5 +100,6 @@ export function loadConfig() {
     // queue max can be between MIN_QUEUE_MAX and MAX_QUEUE_MAX, inclusive
     finalConfig.queue_max = clamp(finalConfig.queue_max, MIN_QUEUE_MAX, MAX_QUEUE_MAX);
     debug('finalConfig after merge and clamp:', finalConfig);
+    cachedConfig = finalConfig;
     return finalConfig;
 }

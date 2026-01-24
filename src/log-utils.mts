@@ -36,13 +36,17 @@ export async function parseIncomingLog(logMessage: string, formatAsCodeBlock: bo
 	}
 
 	if (formatAsCodeBlock && description) {
-		description = "```" + description + "```"
+		description = format(description);
 	}
 
 	return {
 		description,
 		timestamp
 	}
+}
+
+export function format(str: string): string {
+	return "```" + str + "```"
 }
 
 /**
@@ -57,9 +61,9 @@ export async function parseIncomingLog(logMessage: string, formatAsCodeBlock: bo
  * // Cluster mode: { name: "api", exec_mode: "cluster_mode", instances: 4, pm_id: 2 } => "api[2]"
  */
 export function parseProcessName(process: Process): string {
-  const suffix = process.exec_mode === 'cluster_mode' &&
-    process.instances > 1 ? `[${process.pm_id}]` : ''
-  return process.name + suffix;
+	const suffix = process.exec_mode === 'cluster_mode' &&
+		process.instances > 1 ? `[${process.pm_id}]` : ''
+	return process.name + suffix;
 }
 
 /**
@@ -79,12 +83,12 @@ export function parseProcessName(process: Process): string {
  * checkProcessName({ process: { name: 'worker' } }) // => false
  */
 export function checkProcessName(data: BusData, configProcessName: string | null = null): boolean {
-  if (data.process.name === 'pm2-discord') { return false; }
+	if (data.process.name === 'pm2-discord') { return false; }
 
-  if (typeof configProcessName === 'string' &&
-    data.process.name !== configProcessName) {
-    return false
-  }
+	if (typeof configProcessName === 'string' &&
+		data.process.name !== configProcessName) {
+		return false
+	}
 
-  return true;
+	return true;
 }

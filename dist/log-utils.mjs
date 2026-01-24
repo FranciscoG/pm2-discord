@@ -33,12 +33,15 @@ export async function parseIncomingLog(logMessage, formatAsCodeBlock = false) {
         }
     }
     if (formatAsCodeBlock && description) {
-        description = "```" + description + "```";
+        description = format(description);
     }
     return {
         description,
         timestamp
     };
+}
+export function format(str) {
+    return "```" + str + "```";
 }
 /**
  * Generates display name for a PM2 process.

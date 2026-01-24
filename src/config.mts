@@ -1,5 +1,5 @@
-import type { Config, MessageQueueConfig } from './types/index.js';
 import { debug } from './debug.mjs';
+import type { Config } from './types/index.js';
 
 // Configuration limits - buffer and queue bounds
 const MIN_BUFFER_SECONDS = 1;
@@ -8,7 +8,6 @@ const MIN_QUEUE_MAX = 10;
 const MAX_QUEUE_MAX = 100;
 
 export const defaultConfig: Config = {
-  // Event subscriptions - which PM2 events to forward to Discord
   "log": true,
   "error": false,
   "kill": true,
@@ -20,8 +19,6 @@ export const defaultConfig: Config = {
   "exit": false,
   "start": false,
   "online": false,
-
-  // Custom messaging options
   "process_name": null,
   "discord_url": null,
   "buffer": true,
@@ -30,11 +27,6 @@ export const defaultConfig: Config = {
   "rate_limit_messages": 30,
   "rate_limit_window_seconds": 60,
   "format": true
-}
-
-export function getConfigValue(processName: string, item: keyof MessageQueueConfig, config: Config) {
-  // @ts-expect-error -- dynamic key access
-  return config[`${item}-${processName}`] ?? config[item];
 }
 
 function clamp(num: number, min: number, max: number): number {
@@ -80,7 +72,13 @@ export function convertConfigValue(key: string, value: unknown): unknown {
   return value;
 }
 
+let cachedConfig: Config | null = null;
+
 export function loadConfig(): Config {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
   // Read config directly from environment (PM2 sets this for modules)
   const rawConfig: Record<string, unknown> = {};
   debug(`process.env['pm2-discord'] = ${process.env['pm2-discord']}`)
@@ -108,13 +106,14 @@ export function loadConfig(): Config {
   debug('moduleConfig from env with corrected types:', moduleConfig)
 
   const finalConfig = { ...defaultConfig, ...moduleConfig } as Config;
-  
+
   // buffer seconds can be between MIN_BUFFER_SECONDS and MAX_BUFFER_SECONDS, inclusive
   finalConfig.buffer_seconds = clamp(finalConfig.buffer_seconds, MIN_BUFFER_SECONDS, MAX_BUFFER_SECONDS);
-  
+
   // queue max can be between MIN_QUEUE_MAX and MAX_QUEUE_MAX, inclusive
   finalConfig.queue_max = clamp(finalConfig.queue_max, MIN_QUEUE_MAX, MAX_QUEUE_MAX);
-  
+
   debug('finalConfig after merge and clamp:', finalConfig)
+  cachedConfig = finalConfig;
   return finalConfig;
 }

@@ -78,7 +78,7 @@ export interface RequestHistoryEntry {
 }
 
 /**
- * These config items are custom to pm2-discord
+ * These config items customize the message queue behavior
  */
 export interface MessageQueueConfig {
   discord_url: string | null,
@@ -89,18 +89,47 @@ export interface MessageQueueConfig {
   queue_max: number,
 }
 
-export interface Config extends MessageQueueConfig {
-  process_name: string | null
-  log: boolean
-  error: boolean
-  kill: boolean
-  exception: boolean
+/**
+ * These config items control which PM2 `process:events` are forwarded
+ */
+interface Pm2ProcessEvents {
   restart: boolean
   delete: boolean
   stop: boolean
   "restart overlimit": boolean
   exit: boolean
   start: boolean
-  online: boolean,
+  online: boolean
+}
+
+export interface Config extends MessageQueueConfig, Pm2ProcessEvents {
+  /**
+   * Filter by process name (only forward events from this process). Null to disable.
+   */
+  process_name: string | null
+
+  /**
+   * Enable message triple backtick message formatting (code blocks)
+   */
   format: boolean
+
+  /**
+   * Enable `log:out` event forwarding 
+   */
+  log: boolean
+
+  /**
+   * Enable `log:err` event forwarding 
+   */
+  error: boolean
+
+  /**
+   * Enable `'pm2:kill'` event forwarding 
+   */
+  kill: boolean
+
+  /**
+   * Enable `process:exception` event forwarding
+   */
+  exception: boolean
 }

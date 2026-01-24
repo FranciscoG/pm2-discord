@@ -1,7 +1,7 @@
 import test from "tape";
-import { isValidDiscordWebhookUrl } from "../../dist/message-handler.mjs";
 import { convertConfigValue, loadConfig } from "../../dist/config.mjs";
 import { getUserName } from "../../dist/send-to-discord.mjs";
+import { isValidDiscordWebhookUrl } from "../../dist/webhook-utils.mjs";
 
 // ===== isValidDiscordWebhookUrl TESTS =====
 test('isValidDiscordWebhookUrl: accepts valid HTTPS Discord webhook', (t) => {
