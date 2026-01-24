@@ -2,6 +2,21 @@ import type { Headers } from 'node-fetch';
 import type { DiscordMessage, SendToDiscordResult, DiscordRateLimitInfo } from './types/index.js';
 import fetch from 'node-fetch';
 import { debug } from './debug.mjs';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+
+// Get version from package.json
+const __dirname = join(fileURLToPath(import.meta.url), '..');
+let VERSION = 'unknown version'; // fallback
+try {
+  const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+  VERSION = packageJson.version || VERSION;
+  debug(`pm2-discord version: ${VERSION}`);
+} catch (e) {
+  // If we can't read package.json, use fallback version
+  console.error('pm2-discord: Could not read version from package.json:', e);
+}
 
 /**
  * Parse rate limit headers from Discord API response
@@ -20,7 +35,27 @@ function parseRateLimitHeaders(headers: Headers): DiscordRateLimitInfo {
   };
 }
 
-function getUserName(messages: DiscordMessage[]): string {
+/**
+ * Generates username for Discord webhook from process names.
+ * When multiple messages are batched together, combines unique process names
+ * into a comma-separated list. Falls back to default bot name if no valid names.
+ * 
+ * @param messages - Array of Discord messages to extract names from
+ * @returns Comma-separated process names or 'PM2 Discord Bot' if none found
+ * @example
+ * // Single process:
+ * getUserName([{ name: 'api', ... }]) // => "api"
+ * 
+ * // Multiple processes batched:
+ * getUserName([{ name: 'api', ... }, { name: 'worker', ... }]) // => "api, worker"
+ * 
+ * // Duplicate names filtered:
+ * getUserName([{ name: 'api', ... }, { name: 'api', ... }]) // => "api"
+ * 
+ * // Empty names handled:
+ * getUserName([{ name: '', ... }]) // => "PM2 Discord Bot"
+ */
+export function getUserName(messages: DiscordMessage[]): string {
   const names = new Set(messages.map(msg => msg.name.trim()).filter(name => name.length > 0));
   return Array.from(names).join(', ') || 'PM2 Discord Bot';
 }
@@ -41,7 +76,7 @@ export async function sendToDiscord(
 
   // If a Discord URL is not set, we do not want to continue and notify the user that it needs to be set
   if (!discord_url) {
-    console.error("There is no Discord URL set in the configuration.");
+    console.error("pm2-discord: Discord URL is not configured.");
     return {
       success: false,
       error: "Discord URL not configured",
@@ -60,12 +95,21 @@ export async function sendToDiscord(
   const options = {
     method: 'POST',
     body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': `pm2-discord/${VERSION}`
+    }
   };
+
+  // Set up timeout protection (Discord should respond quickly)
+  const FETCH_TIMEOUT_MS = 5000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
     debug('Sending to Discord with payload:', payload);
-    const res = await fetch(discord_url, options);
+    const res = await fetch(discord_url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
     debug(`Discord webhook responded with status ${res.status}`);
 
     // Parse rate limit headers from response
@@ -91,7 +135,7 @@ export async function sendToDiscord(
         isGlobal = true;
       }
 
-      console.error(`Discord rate limit hit. ${isGlobal ? 'Global' : 'Route'} limit. Retry after ${retryAfter}s`);
+      console.error(`pm2-discord: Discord rate limit hit. ${isGlobal ? 'Global' : 'Route'} limit. Retry after ${retryAfter}s`);
 
       return {
         success: false,
@@ -122,7 +166,7 @@ export async function sendToDiscord(
     }
 
     // Handle other error statuses
-    console.error(`Discord webhook returned status ${res.status}: ${res.statusText}`);
+    console.error(`pm2-discord: Discord webhook returned status ${res.status}: ${res.statusText}`);
     return {
       success: false,
       error: `HTTP ${res.status}: ${res.statusText}`,
@@ -130,7 +174,20 @@ export async function sendToDiscord(
     };
 
   } catch (error: any) {
-    console.error('Error sending to Discord:', error.message);
+    clearTimeout(timeoutId);
+    
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      console.error(`pm2-discord: Discord webhook request timed out after ${FETCH_TIMEOUT_MS}ms`);
+      return {
+        success: false,
+        error: 'Webhook request timeout',
+        rateLimited: false,
+        rateLimitInfo: {}
+      };
+    }
+
+    console.error('pm2-discord: Error sending to Discord:', error.message);
     return {
       success: false,
       error: error.message,

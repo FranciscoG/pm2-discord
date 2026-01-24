@@ -3,7 +3,12 @@ export interface DiscordMessage {
   name: string,
   event: string,
   description: string | null,
-  timestamp: number | null
+  timestamp: number | null,
+  /**
+   * Internal: Number of times this message has been attempted to send.
+   * Used to prevent infinite retries in case of persistent failures.
+   */
+  _retryAttempts?: number
 }
 
 export interface Process {

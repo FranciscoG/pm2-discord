@@ -1,81 +1,34 @@
-import type { LogMessage, Process, BusData, Config } from './types/index.js';
+import type {  BusData, Config } from './types/index.js';
 import type { SubEmitterSocket } from 'axon'
 import pm2 from 'pm2';
 import pmx from 'pmx';
-import { addMessage } from './message-handler.mjs';
+import { addMessage, gracefulShutdown } from './message-handler.mjs';
 import stripAnsi from 'strip-ansi';
 import { loadConfig } from './config.mjs';
+import { parseIncomingLog, parseProcessName, checkProcessName } from './log-utils.mjs';
 
-pmx.initModule();
+// Only initialize PMX when not running tests
+// PMX starts background connections that prevent test processes from exiting
+if (process.env.NODE_ENV !== 'test') {
+  pmx.initModule();
+}
 
 const config = loadConfig();
 
-/**
- * PM2 is storing log messages with date in format "YYYY-MM-DD hh:mm:ss +-zz:zz"
- * Parses this date from begin of message
- */
-async function parseIncomingLog(logMessage: string): Promise<LogMessage> {
-  let description = null;
-  let timestamp = null;
 
-  if (typeof logMessage === "string") {
-    // Parse date on begin (if exists)
-    const dateRegex = /([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{1,2}:[0-9]{2}:[0-9]{2}(\.[0-9]{3})? [+\-]?[0-9]{1,2}:[0-9]{2}(\.[0-9]{3})?)[:\-\s]+/;
-    const parsedDescription = dateRegex.exec(logMessage);
-    // Note: The `parsedDescription[0]` is datetime with separator(s) on the end.
-    //       The `parsedDescription[1]` is datetime only (without separators).
-    //       The `parsedDescription[2]` are ".microseconds"
-    if (parsedDescription && parsedDescription.length >= 2) {
-      // Use timestamp from message
-      timestamp = Math.floor(Date.parse(parsedDescription[1]) / 1000);
-      // Use message without date, strip ANSI codes
-      description = stripAnsi(logMessage.replace(parsedDescription[0], ""));
-    } else {
-      // Use whole original message, strip ANSI codes
-      description = stripAnsi(logMessage);
-    }
-  }
 
-  if (config.format && description) {
-    description = "```" + description + "```"
-  }
 
-  return {
-    description,
-    timestamp
-  }
-}
 
-/**
- * Get pm2 app display name.
- * If the app is running in cluster mode, id will append [pm_id] as the suffix.
- */
-function parseProcessName(process: Process) {
-  const suffix = process.exec_mode === 'cluster_mode' &&
-    process.instances > 1 ? `[${process.pm_id}]` : ''
-  return process.name + suffix;
-}
-
-function checkProcessName(data: BusData): boolean {
-  // We don't want to publish messages from pm2-discord itself
-  if (data.process.name === 'pm2-discord') { return false; }
-
-  // if a specific process name was specified then we check to make sure only 
-  // that process gets output
-  if (typeof config.process_name === 'string' &&
-    data.process.name !== config.process_name) {
-    return false
-  }
-
-  return true;
-}
-
-// Start listening on the PM2 BUS
 pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
 
   if (err) {
     console.error('pm2-discord: Error launching PM2 bus:', err);
-    process.exit(2);
+    // Trigger graceful shutdown which will flush any pending messages before exiting
+    gracefulShutdown().catch(e => {
+      console.error('pm2-discord: Error during graceful shutdown:', e);
+      process.exit(2);
+    });
+    return;
   }
 
   if (!config.discord_url) {
@@ -83,15 +36,16 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
     console.error('pm2-discord: "discord_url" is required and is undefined.')
     console.error('pm2-discord: Set the Discord URL using the following command:')
     console.error('pm2-discord: `pm2 set pm2-discord:discord_url DISCORD_WEBHOOK_URL`')
-    process.exit(1);
+    // we don't need to flush messages here since none could have been sent
+    process.exit(3);
   }
 
   // Listen for process logs
   if (config.log) {
     bus.on('log:out', async function (data: BusData) {
-      if (!checkProcessName(data)) { return; }
+      if (!checkProcessName(data, config.process_name)) { return; }
 
-      const parsedLog = await parseIncomingLog(data.data || '');
+      const parsedLog = await parseIncomingLog(data.data || '', config.format);
       addMessage({
         name: parseProcessName(data.process),
         event: 'log',
@@ -104,9 +58,9 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for process errors
   if (config.error) {
     bus.on('log:err', async function (data: BusData) {
-      if (!checkProcessName(data)) { return; }
+      if (!checkProcessName(data, config.process_name)) { return; }
 
-      const parsedLog = await parseIncomingLog(data.data || '');
+      const parsedLog = await parseIncomingLog(data.data || '', config.format);
       addMessage({
         name: parseProcessName(data.process),
         event: 'error',
@@ -131,7 +85,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   // Listen for process exceptions
   if (config.exception) {
     bus.on('process:exception', async function (data: BusData & { data: any }) {
-      if (!checkProcessName(data)) { return; }
+      if (!checkProcessName(data, config.process_name)) { return; }
 
       // If it is instance of Error, use it. If type is unknown, stringify it.
       const rawDescription = (data.data && data.data.message) ? (data.data.code || '') + data.data.message : JSON.stringify(data.data);
@@ -149,7 +103,7 @@ pm2.launchBus(function (err: Error, bus: SubEmitterSocket) {
   bus.on('process:event', function (data: BusData & { event: string }) {
     const setting = config[data.event as keyof Config];
     if (typeof setting === 'boolean' && !setting) { return; } // This event type is disabled by configuration.
-    if (!checkProcessName(data)) { return; }
+    if (!checkProcessName(data, config.process_name)) { return; }
 
     addMessage({
       name: parseProcessName(data.process),

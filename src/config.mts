@@ -1,8 +1,14 @@
 import type { Config, MessageQueueConfig } from './types/index.js';
-import { debug } from './debug.mjs'; 
+import { debug } from './debug.mjs';
+
+// Configuration limits - buffer and queue bounds
+const MIN_BUFFER_SECONDS = 1;
+const MAX_BUFFER_SECONDS = 5;
+const MIN_QUEUE_MAX = 10;
+const MAX_QUEUE_MAX = 100;
 
 export const defaultConfig: Config = {
-  // these are 
+  // Event subscriptions - which PM2 events to forward to Discord
   "log": true,
   "error": false,
   "kill": true,
@@ -15,7 +21,7 @@ export const defaultConfig: Config = {
   "start": false,
   "online": false,
 
-  // custom options
+  // Custom messaging options
   "process_name": null,
   "discord_url": null,
   "buffer": true,
@@ -35,27 +41,67 @@ function clamp(num: number, min: number, max: number): number {
   return Math.min(Math.max(num, min), max);
 }
 
+/**
+ * Convert string values to correct types
+ * PM2 passes config as stringified JSON, so values like "true", "1" need conversion
+ */
+export function convertConfigValue(key: string, value: unknown): unknown {
+  // Boolean keys - these should always be booleans
+  const booleanKeys = new Set<string>([
+    'log', 'error', 'kill', 'exception', 'restart', 'delete', 'stop',
+    'exit', 'start', 'online', 'buffer', 'format'
+  ]);
+
+  // Numeric keys - these should always be numbers
+  const numericKeys = new Set<string>([
+    'buffer_seconds', 'queue_max', 'rate_limit_messages', 'rate_limit_window_seconds'
+  ]);
+
+  if (booleanKeys.has(key)) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase().trim();
+      return lower === 'true' || lower === '1';
+    }
+    return Boolean(value);
+  }
+
+  if (numericKeys.has(key)) {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const num = Number(value.trim());
+      return isNaN(num) ? undefined : num;
+    }
+    return undefined;
+  }
+
+  // String keys (like 'discord_url', 'process_name') - keep as-is
+  if (typeof value === 'string') return value;
+  return value;
+}
+
 export function loadConfig(): Config {
   // Read config directly from environment (PM2 sets this for modules)
-  let moduleConfig: Partial<Config> = {};
+  const rawConfig: Record<string, unknown> = {};
   debug(`process.env['pm2-discord'] = ${process.env['pm2-discord']}`)
   try {
     if (process.env['pm2-discord']) {
-      moduleConfig = JSON.parse(process.env['pm2-discord']);
+      const parsed = JSON.parse(process.env['pm2-discord']);
+      if (typeof parsed === 'object' && parsed !== null) {
+        Object.assign(rawConfig, parsed);
+      }
     }
   } catch (e) {
     console.error('pm2-discord: Error parsing module config from env:', e);
   }
 
-  // need to convert values to correct types
-  for (const key in moduleConfig) {
-    const value = moduleConfig[key as keyof Config];
-    if (value === 'true') {
-      moduleConfig[key as keyof Config] = true as any;
-    } else if (value === 'false') {
-      moduleConfig[key as keyof Config] = false as any;
-    } else if (typeof value === 'string' && value.trim() !== '' && !isNaN(Number(value))) {
-      moduleConfig[key as keyof Config] = Number(value.trim()) as any;
+  // Convert values to correct types based on key
+  const moduleConfig: Partial<Config> = {};
+  for (const key in rawConfig) {
+    const convertedValue = convertConfigValue(key, rawConfig[key]);
+    if (convertedValue !== undefined) {
+      // TypeScript: we know these are valid config keys after conversion
+      (moduleConfig as Record<string, unknown>)[key] = convertedValue;
     }
   }
 
@@ -63,11 +109,11 @@ export function loadConfig(): Config {
 
   const finalConfig = { ...defaultConfig, ...moduleConfig } as Config;
   
-  // buffer seconds can be between 1 and 5, inclusive
-  finalConfig.buffer_seconds = clamp(finalConfig.buffer_seconds, 1, 5);
+  // buffer seconds can be between MIN_BUFFER_SECONDS and MAX_BUFFER_SECONDS, inclusive
+  finalConfig.buffer_seconds = clamp(finalConfig.buffer_seconds, MIN_BUFFER_SECONDS, MAX_BUFFER_SECONDS);
   
-  // queue max can be between 10 and 100, inclusive
-  finalConfig.queue_max = clamp(finalConfig.queue_max, 10, 100);
+  // queue max can be between MIN_QUEUE_MAX and MAX_QUEUE_MAX, inclusive
+  finalConfig.queue_max = clamp(finalConfig.queue_max, MIN_QUEUE_MAX, MAX_QUEUE_MAX);
   
   debug('finalConfig after merge and clamp:', finalConfig)
   return finalConfig;

@@ -24,6 +24,9 @@ test("MessageQueue - calculates correct throttle rate from config", function (t)
   // Should be 20/60 = 0.333... requests per second (under the 0.5 limit)
   t.ok(effectiveRate >= 0.3 && effectiveRate <= 0.35, 'should calculate correct rate from config');
   t.ok(queue.requestsPerTick >= 1, 'should have at least 1 request per tick');
+
+  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - uses default webhook rate limit when no config provided", function (t) {
@@ -44,6 +47,9 @@ test("MessageQueue - uses default webhook rate limit when no config provided", f
 
   // Should default to safe webhook limit: 30 per 60 seconds = 0.5/sec
   t.ok(effectiveRate <= 0.5, 'should default to webhook safe rate of 0.5 req/sec');
+
+  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - caps rate at webhook limit (30 per 60sec)", function (t) {
@@ -66,6 +72,9 @@ test("MessageQueue - caps rate at webhook limit (30 per 60sec)", function (t) {
 
   // Webhooks have a limit of 30 requests per 60 seconds = 0.5/sec
   t.ok(effectiveRate <= 0.5, 'should cap rate at webhook limit of 0.5 req/sec');
+
+  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - tracks request history correctly", async function (t) {
@@ -101,6 +110,7 @@ test("MessageQueue - tracks request history correctly", async function (t) {
   t.ok(history[0].timestamp > 0, 'history entry should have timestamp');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - respects Discord rate limit backoff", async function (t) {
@@ -130,10 +140,11 @@ test("MessageQueue - respects Discord rate limit backoff", async function (t) {
   queue.addMessage({ name: 'app', event: 'log', description: 'msg1', timestamp: Date.now() });
   await queue.flush();
 
+
   t.equal(callCount, 1, 'should have attempted to send');
   t.equal(queue.canSendNow(), false, 'should be in backoff period');
-
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - calculates correct delay until next send", async function (t) {
@@ -163,10 +174,11 @@ test("MessageQueue - calculates correct delay until next send", async function (
 
   const delay = queue.getDelayUntilNextSend();
 
+  queue.stopInterval();
+
   t.ok(delay > 0, 'should require a delay');
   t.ok(delay <= 2000, 'delay should not exceed retry_after time');
-
-  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - handles successful sends", async function (t) {
@@ -192,10 +204,11 @@ test("MessageQueue - handles successful sends", async function (t) {
 
   await queue.flush();
 
+  queue.stopInterval();
+
   t.ok(sentMessages.length > 0, 'should have sent messages');
   t.equal(queue.canSendNow(), true, 'should be able to send again');
-
-  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - puts messages back on rate limit", async function (t) {
@@ -226,10 +239,10 @@ test("MessageQueue - puts messages back on rate limit", async function (t) {
   await queue.flush();
   const queueLengthAfter = queue.messageQueue.length;
 
+  queue.stopInterval();
   t.equal(queueLengthBefore, 2, 'should have 2 messages before flush');
   t.equal(queueLengthAfter, 2, 'should still have 2 messages after rate limit (put back)');
-
-  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - starts interval when message added", function (t) {
@@ -255,6 +268,7 @@ test("MessageQueue - starts interval when message added", function (t) {
   t.ok(queue.flushInterval !== null, 'interval should start after adding message');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - stops interval when queue is empty", async function (t) {
@@ -282,6 +296,8 @@ test("MessageQueue - stops interval when queue is empty", async function (t) {
   await queue.processTick(); // This should stop the interval since queue is empty
 
   t.equal(queue.flushInterval, null, 'interval should stop when queue is empty');
+  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - cleans up old request history", function (t) {
@@ -313,6 +329,9 @@ test("MessageQueue - cleans up old request history", function (t) {
 
   t.ok(history.length < 3, 'should have removed old entries');
   t.ok(history.length >= 1, 'should keep recent entries');
+
+  queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - buffers messages when buffer is enabled", async function (t) {
@@ -348,6 +367,7 @@ test("MessageQueue - buffers messages when buffer is enabled", async function (t
     sentMessages[0].description.includes('Message 3'), 'should combine all messages');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - does not buffer when buffer is disabled", async function (t) {
@@ -377,6 +397,7 @@ test("MessageQueue - does not buffer when buffer is disabled", async function (t
   t.ok(callCount >= 1, 'should send messages without buffering');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - respects buffer_seconds timing", async function (t) {
@@ -412,6 +433,7 @@ test("MessageQueue - respects buffer_seconds timing", async function (t) {
   t.equal(callCount, 2, 'should send two separate messages when buffer_seconds expires');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - stops sending on invalid webhook (404)", async function (t) {
@@ -451,6 +473,7 @@ test("MessageQueue - stops sending on invalid webhook (404)", async function (t)
   t.equal(callCount, 1, 'should not attempt to send again after 404');
 
   queue.stopInterval();
+  t.end();
 });
 
 // ===== CHARACTER LIMIT TESTS =====
@@ -483,6 +506,7 @@ test("MessageQueue - tracks character count correctly in buffer", function (t) {
   t.ok(queue.characterCount <= 1000, 'character count should only count message content');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - flushes buffer when character limit exceeded", async function (t) {
@@ -515,6 +539,7 @@ test("MessageQueue - flushes buffer when character limit exceeded", async functi
   t.ok(queue.currentBuffer.length <= 1, 'current buffer should contain only the new message');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - truncates single messages exceeding 2000 characters", function (t) {
@@ -551,6 +576,7 @@ test("MessageQueue - truncates single messages exceeding 2000 characters", funct
   t.ok(queue.messageQueue[0].description.length <= 2000, 'message should be truncated to 2000 chars or less');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - accounts for newlines when checking character limit", async function (t) {
@@ -583,6 +609,7 @@ test("MessageQueue - accounts for newlines when checking character limit", async
   t.ok(flushCount > 0, 'messages should be split across buffer and queue due to newline accounting');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - shouldFlushBuffer triggers at character limit", function (t) {
@@ -615,6 +642,7 @@ test("MessageQueue - shouldFlushBuffer triggers at character limit", function (t
   t.ok(queue.characterCount >= 0, 'buffer management should be working');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - combines messages with newlines without exceeding limit", async function (t) {
@@ -655,6 +683,7 @@ test("MessageQueue - combines messages with newlines without exceeding limit", a
   }
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - resets character count on buffer flush", async function (t) {
@@ -683,6 +712,7 @@ test("MessageQueue - resets character count on buffer flush", async function (t)
   t.equal(queue.characterCount, 0, 'character count should reset after flush');
 
   queue.stopInterval();
+  t.end();
 });
 
 test("MessageQueue - respects queue_max limit along with character limit", function (t) {
@@ -710,4 +740,5 @@ test("MessageQueue - respects queue_max limit along with character limit", funct
   t.ok(queue.currentBuffer.length <= 5, 'should respect queue_max limit');
 
   queue.stopInterval();
+  t.end();
 });

@@ -7,7 +7,7 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "test": "npm run build && tape 'tests/unit/*-test.mjs'",
+    "test": "npm run build && NODE_ENV=test tape 'tests/unit/*-test.mjs'",
     "test:integration": "npm run build && tape 'tests/integration/*.test.js'",
     "build": "tsc",
     "prepublishOnly": "tsc",
