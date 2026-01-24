@@ -66,8 +66,8 @@ export function convertConfigValue(key, value) {
     return value;
 }
 let cachedConfig = null;
-export function loadConfig() {
-    if (cachedConfig) {
+export function loadConfig(refresh = false) {
+    if (cachedConfig && !refresh) {
         return cachedConfig;
     }
     // Read config directly from environment (PM2 sets this for modules)

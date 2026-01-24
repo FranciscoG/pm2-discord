@@ -4,11 +4,11 @@
   "description": "A PM2 module to emit events and logs to discord",
   "main": "dist/index.mjs",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "npm run build && NODE_ENV=test tape 'tests/unit/*-test.mjs'",
-    "test:integration": "npm run build && NODE_ENV=test tape 'tests/integration/*.test.js'",
+    "test": "npm run build && NODE_ENV=test node --test tests/unit",
+    "test:integration": "npm run build && NODE_ENV=test node --test tests/integration",
     "build": "rm -rf dist && tsc",
     "watch": "tsc -w"
   },
@@ -39,8 +39,7 @@
   },
   "devDependencies": {
     "@types/axon": "^2.0.5",
-    "@types/node": "^16.0.0",
-    "tape": "5.9.0",
+    "@types/node": "^18.0.0",
     "typescript": "5.9.3"
   }
 }

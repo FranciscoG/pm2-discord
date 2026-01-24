@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "alwaysStrict": true,
-    "module": "node16",
+    "module": "nodenext",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2021",
@@ -11,7 +11,7 @@
     "noUnusedLocals": true,
     "noImplicitReturns": true,
     "strictNullChecks": true,
-    "moduleResolution": "node16",
+    "moduleResolution": "nodenext",
     "sourceMap": false,
     "outDir": "dist",
     "baseUrl": "src",

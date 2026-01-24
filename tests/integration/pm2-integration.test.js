@@ -1,25 +1,27 @@
-const test = require('tape');
+const { test, after, before } = require('node:test');
+const assert = require('node:assert/strict');
 const { execSync } = require('child_process');
 const { startMockDiscordServer, MODES } = require('./mock-discord-server');
 const { sleep, pm2Set, pm2Start, waitForRequests, pm2KillAll, pm2ResetConfig } = require('./utils');
 
 const APP_NAME = 'test-app';
 
-// start fresh, kill everything from any previous runs. This uninstalls pm2-discord too.
-// however it doesn't reset any config items set previously, so we will do that manually below.
-pm2KillAll();
+before(() => {
+	// start fresh, kill everything from any previous runs. This uninstalls pm2-discord too.
+	// however it doesn't reset any config items set previously, so we will do that manually below.
+	pm2KillAll();
 
-// this will remove all config settings set for pm2-discord
-pm2ResetConfig();
+	// this will remove all config settings set for pm2-discord
+	pm2ResetConfig();
 
-pm2Set('format', false); // disable rich formatting for easier testing
+	pm2Set('format', false); // disable rich formatting for easier testing
 
-// And then we re-install pm2-discord to ensure a clean state.
-// This one is important, if it fails, the test cannot continue.
-execSync('PM2_DISCORD_DEBUG=1 NODE_ENV=test npx pm2 install .', { stdio: 'inherit' });
+	// And then we re-install pm2-discord to ensure a clean state.
+	// This one is important, if it fails, the test cannot continue.
+	execSync('PM2_DISCORD_DEBUG=1 NODE_ENV=test npx pm2 install .', { stdio: 'inherit' });
+});
 
-test('Integration: success path with buffering + rate limiting', async function (t) {
-	t.plan(3);
+test('Integration: success path with buffering + rate limiting', async () => {
 	const mock = await startMockDiscordServer(8000);
 
 	// Configure pm2-discord to point to mock server
@@ -41,23 +43,22 @@ test('Integration: success path with buffering + rate limiting', async function 
 
 	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
 
-	t.ok(requests.length > 0, 'mock server should receive requests');
+	assert.ok(requests.length > 0, 'mock server should receive requests');
 
 	// Check that payloads contain multiple combined messages due to buffering
 	const anyCombined = requests.some(r => r.body && r.body.content && r.body.content.split('\n').length >= 3);
-	t.ok(anyCombined, 'at least one request should contain combined messages');
+	assert.ok(anyCombined, 'at least one request should contain combined messages');
 
 	// Ensure we did not exceed webhook safe rate (approx <= 0.5 req/sec)
 	const durationSec = 6;
 	const maxExpected = Math.ceil(durationSec * 0.5) + 1; // +1 slack
-	t.ok(requests.length <= maxExpected, `should not exceed ${maxExpected} requests in ${durationSec}s`);
+	assert.ok(requests.length <= maxExpected, `should not exceed ${maxExpected} requests in ${durationSec}s`);
 
 	// console.log('Test completed, closing mock server at timestamp', new Date().toISOString());
 	mock.server.close();
 });
 
-test('Integration: handles 429 rate limit backoff', async function (t) {
-	t.plan(2);
+test('Integration: handles 429 rate limit backoff', async () => {
 	const mock = await startMockDiscordServer(8001);
 
 	mock.setMode(MODES.RATE_LIMIT);
@@ -80,16 +81,15 @@ test('Integration: handles 429 rate limit backoff', async function (t) {
 
 	// We expect at least one 429 to have been returned and the module to back off
 	// Since our mock always returns 429, we expect a small number of attempts respecting retry_after
-	t.ok(requests.length <= 3, 'should respect backoff and limit request attempts');
+	assert.ok(requests.length <= 3, 'should respect backoff and limit request attempts');
 
 	// Verify last response included rate limit headers
 	const last = requests[requests.length - 1];
-	t.ok(last, 'should have at least one request');
+	assert.ok(last, 'should have at least one request');
 	mock.server.close();
 });
 
-test('Integration: stops sending on 404 invalid webhook', async function (t) {
-	t.plan(2);
+test('Integration: stops sending on 404 invalid webhook', async () => {
 	const mock = await startMockDiscordServer(8001);
 
 	mock.setMode(MODES.NOT_FOUND);
@@ -117,13 +117,12 @@ test('Integration: stops sending on 404 invalid webhook', async function (t) {
 	requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
 	const finalCount = requests.length;
 
-	t.ok(initialCount >= 1, `should make at least one attempt. Initial attempts: ${initialCount}`);
-	t.equal(finalCount, initialCount, `should stop attempting after 404. Final attempts: ${finalCount}`);
+	assert.ok(initialCount >= 1, `should make at least one attempt. Initial attempts: ${initialCount}`);
+	assert.strictEqual(finalCount, initialCount, `should stop attempting after 404. Final attempts: ${finalCount}`);
 	mock.server.close();
 });
 
-test('Integration: graceful shutdown flushes all messages', async function (t) {
-	t.plan(2);
+test('Integration: graceful shutdown flushes all messages', async () => {
 	const mock = await startMockDiscordServer(8002);
 
 	mock.setMode(MODES.SUCCESS);
@@ -154,16 +153,15 @@ test('Integration: graceful shutdown flushes all messages', async function (t) {
 		console.log('First request content length:', requests[0].body?.content?.length);
 	}
 
-	t.ok(requests.length > 0, 'should flush buffered messages on shutdown');
-	t.ok(requests.some(r => r.body && r.body.content), 'should contain message content');
+	assert.ok(requests.length > 0, 'should flush buffered messages on shutdown');
+	assert.ok(requests.some(r => r.body && r.body.content), 'should contain message content');
 
 	mock.server.close();
 	// reset the buffer_seconds to default so other tests aren't affected
 	execSync(`npx pm2 unset pm2-discord:buffer_seconds`, { stdio: 'inherit' });
 });
 
-test('Integration: handles global rate limit (429 with global scope)', async function (t) {
-	t.plan(2);
+test('Integration: handles global rate limit (429 with global scope)', async () => {
 	const mock = await startMockDiscordServer(8003);
 
 	mock.setMode(MODES.GLOBAL_RATE_LIMIT);
@@ -186,14 +184,13 @@ test('Integration: handles global rate limit (429 with global scope)', async fun
 
 	// With global rate limit, we expect the module to back off and not spam requests
 	// Should respect the global rate limit and make fewer attempts
-	t.ok(requests.length >= 1, 'should make at least one attempt');
-	t.ok(requests.length <= 3, 'should respect global rate limit and limit request attempts');
+	assert.ok(requests.length >= 1, 'should make at least one attempt');
+	assert.ok(requests.length <= 3, 'should respect global rate limit and limit request attempts');
 
 	mock.server.close();
 });
 
-test('Integration: buffering disabled - sends messages immediately', async function (t) {
-	t.plan(3);
+test('Integration: buffering disabled - sends messages immediately', async () => {
 	const mock = await startMockDiscordServer(8004);
 
 	mock.setMode(MODES.SUCCESS);
@@ -224,25 +221,24 @@ test('Integration: buffering disabled - sends messages immediately', async funct
 
 	// Without buffering, each message goes directly to queue and gets processed at rate limit
 	// So we expect individual messages, not combined ones
-	t.ok(requestsAfter5s >= 1, `should receive at least 1 request in 5s (got ${requestsAfter5s})`);
+	assert.ok(requestsAfter5s >= 1, `should receive at least 1 request in 5s (got ${requestsAfter5s})`);
 
 	// Check that messages are not combined (each should be individual)
 	const allIndividual = requests.every(r => {
 		const lines = r.body?.content?.trim().split('\n').filter(Boolean) || [];
 		return lines.length === 1;
 	});
-	t.ok(allIndividual, 'messages should not be combined when buffering is disabled');
+	assert.ok(allIndividual, 'messages should not be combined when buffering is disabled');
 
 	// Rate limiting should still work - max ~0.5 req/sec for 5 seconds total = ~2-3 requests
-	t.ok(totalRequests <= 3, `should respect rate limiting (got ${totalRequests} requests)`);
+	assert.ok(totalRequests <= 3, `should respect rate limiting (got ${totalRequests} requests)`);
 
 	mock.server.close();
 	// Reset buffer setting
 	execSync(`npx pm2 unset pm2-discord:buffer`, { stdio: 'inherit' });
 });
 
-test('Integration: respects 2000 character limit in buffered messages', async function (t) {
-	t.plan(4);
+test('Integration: respects 2000 character limit in buffered messages', async () => {
 	const mock = await startMockDiscordServer(8005);
 
 	mock.setMode(MODES.SUCCESS);
@@ -267,31 +263,31 @@ test('Integration: respects 2000 character limit in buffered messages', async fu
 
 	const requests = await waitForRequests(mock, { min: 1, timeoutMs: 8000, intervalMs: 500 });
 
-	t.ok(requests.length > 0, 'should receive at least one request');
+	assert.ok(requests.length > 0, 'should receive at least one request');
 
 	// Check that no single request exceeds 2000 characters
 	const exceedsLimit = requests.some(r => {
 		const contentLength = r.body?.content?.length ?? 0;
 		return contentLength > 2000;
 	});
-	t.notOk(exceedsLimit, 'no request should exceed 2000 character limit');
+	assert.ok(!exceedsLimit, 'no request should exceed 2000 character limit');
 
 	// Check that we have multiple requests (proving buffering was split)
-	t.ok(requests.length >= 2, 'should have multiple requests due to character limit splitting');
+	assert.ok(requests.length >= 2, 'should have multiple requests due to character limit splitting');
 
 	// Verify all requests with content are under the limit
 	const allValid = requests.every(r => {
 		const contentLength = r.body?.content?.length ?? 0;
 		return contentLength <= 2000;
 	});
-	t.ok(allValid, 'all requests should have content within 2000 character limit');
+	assert.ok(allValid, 'all requests should have content within 2000 character limit');
 
 	mock.server.close();
 	// Reset settings
 	execSync(`npx pm2 unset pm2-discord:buffer_seconds`, { stdio: 'inherit' });
 });
 
-test.onFinish(() => {
+after(() => {
 	try {
 		// kill will stop and delete all pm2 processes and uninstall modules
 		execSync('npx pm2 kill', { stdio: 'inherit' });

@@ -1,10 +1,10 @@
-import test from "tape";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { MessageQueue } from '../../dist/message-queue.mjs';
 
 // ===== MESSAGE QUEUE THROTTLING TESTS =====
 
-test("MessageQueue - calculates correct throttle rate from config", function (t) {
-  t.plan(2);
+test("MessageQueue - calculates correct throttle rate from config", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -22,15 +22,14 @@ test("MessageQueue - calculates correct throttle rate from config", function (t)
   const effectiveRate = queue.getEffectiveRate();
 
   // Should be 20/60 = 0.333... requests per second (under the 0.5 limit)
-  t.ok(effectiveRate >= 0.3 && effectiveRate <= 0.35, 'should calculate correct rate from config');
-  t.ok(queue.requestsPerTick >= 1, 'should have at least 1 request per tick');
+  assert.ok(effectiveRate >= 0.3 && effectiveRate <= 0.35, 'should calculate correct rate from config');
+  assert.ok(queue.requestsPerTick >= 1, 'should have at least 1 request per tick');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - uses default webhook rate limit when no config provided", function (t) {
-  t.plan(1);
+test("MessageQueue - uses default webhook rate limit when no config provided", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -46,14 +45,13 @@ test("MessageQueue - uses default webhook rate limit when no config provided", f
   const effectiveRate = queue.getEffectiveRate();
 
   // Should default to safe webhook limit: 30 per 60 seconds = 0.5/sec
-  t.ok(effectiveRate <= 0.5, 'should default to webhook safe rate of 0.5 req/sec');
+  assert.ok(effectiveRate <= 0.5, 'should default to webhook safe rate of 0.5 req/sec');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - caps rate at webhook limit (30 per 60sec)", function (t) {
-  t.plan(1);
+test("MessageQueue - caps rate at webhook limit (30 per 60sec)", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -71,14 +69,13 @@ test("MessageQueue - caps rate at webhook limit (30 per 60sec)", function (t) {
   const effectiveRate = queue.getEffectiveRate();
 
   // Webhooks have a limit of 30 requests per 60 seconds = 0.5/sec
-  t.ok(effectiveRate <= 0.5, 'should cap rate at webhook limit of 0.5 req/sec');
+  assert.ok(effectiveRate <= 0.5, 'should cap rate at webhook limit of 0.5 req/sec');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - tracks request history correctly", async function (t) {
-  t.plan(3);
+test("MessageQueue - tracks request history correctly", async () => {
 
   let callCount = 0;
   const mockSender = async (messages) => {
@@ -105,16 +102,15 @@ test("MessageQueue - tracks request history correctly", async function (t) {
 
   const history = queue.getRequestHistory();
 
-  t.equal(callCount, 1, 'should have sent once');
-  t.equal(history.length, 1, 'should have one entry in history');
-  t.ok(history[0].timestamp > 0, 'history entry should have timestamp');
+  assert.strictEqual(callCount, 1, 'should have sent once');
+  assert.strictEqual(history.length, 1, 'should have one entry in history');
+  assert.ok(history[0].timestamp > 0, 'history entry should have timestamp');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - respects Discord rate limit backoff", async function (t) {
-  t.plan(2);
+test("MessageQueue - respects Discord rate limit backoff", async () => {
 
   let callCount = 0;
   const mockSender = async (messages) => {
@@ -141,14 +137,13 @@ test("MessageQueue - respects Discord rate limit backoff", async function (t) {
   await queue.flush();
 
 
-  t.equal(callCount, 1, 'should have attempted to send');
-  t.equal(queue.canSendNow(), false, 'should be in backoff period');
+  assert.strictEqual(callCount, 1, 'should have attempted to send');
+  assert.strictEqual(queue.canSendNow(), false, 'should be in backoff period');
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - calculates correct delay until next send", async function (t) {
-  t.plan(2);
+test("MessageQueue - calculates correct delay until next send", async () => {
 
   const mockSender = async (messages) => {
     return {
@@ -176,13 +171,12 @@ test("MessageQueue - calculates correct delay until next send", async function (
 
   queue.stopInterval();
 
-  t.ok(delay > 0, 'should require a delay');
-  t.ok(delay <= 2000, 'delay should not exceed retry_after time');
-  t.end();
+  assert.ok(delay > 0, 'should require a delay');
+  assert.ok(delay <= 2000, 'delay should not exceed retry_after time');
+  
 });
 
-test("MessageQueue - handles successful sends", async function (t) {
-  t.plan(2);
+test("MessageQueue - handles successful sends", async () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -206,13 +200,12 @@ test("MessageQueue - handles successful sends", async function (t) {
 
   queue.stopInterval();
 
-  t.ok(sentMessages.length > 0, 'should have sent messages');
-  t.equal(queue.canSendNow(), true, 'should be able to send again');
-  t.end();
+  assert.ok(sentMessages.length > 0, 'should have sent messages');
+  assert.strictEqual(queue.canSendNow(), true, 'should be able to send again');
+  
 });
 
-test("MessageQueue - puts messages back on rate limit", async function (t) {
-  t.plan(2);
+test("MessageQueue - puts messages back on rate limit", async () => {
 
   const mockSender = async (messages) => {
     return {
@@ -240,13 +233,12 @@ test("MessageQueue - puts messages back on rate limit", async function (t) {
   const queueLengthAfter = queue.messageQueue.length;
 
   queue.stopInterval();
-  t.equal(queueLengthBefore, 2, 'should have 2 messages before flush');
-  t.equal(queueLengthAfter, 2, 'should still have 2 messages after rate limit (put back)');
-  t.end();
+  assert.strictEqual(queueLengthBefore, 2, 'should have 2 messages before flush');
+  assert.strictEqual(queueLengthAfter, 2, 'should still have 2 messages after rate limit (put back)');
+  
 });
 
-test("MessageQueue - starts interval when message added", function (t) {
-  t.plan(2);
+test("MessageQueue - starts interval when message added", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -261,18 +253,17 @@ test("MessageQueue - starts interval when message added", function (t) {
 
   const queue = new MessageQueue(config, mockSender);
 
-  t.equal(queue.flushInterval, null, 'interval should not be running initially');
+  assert.strictEqual(queue.flushInterval, null, 'interval should not be running initially');
 
   queue.addMessage({ name: 'app', event: 'log', description: 'msg1', timestamp: Date.now() });
 
-  t.ok(queue.flushInterval !== null, 'interval should start after adding message');
+  assert.ok(queue.flushInterval !== null, 'interval should start after adding message');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - stops interval when queue is empty", async function (t) {
-  t.plan(2);
+test("MessageQueue - stops interval when queue is empty", async () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -289,19 +280,18 @@ test("MessageQueue - stops interval when queue is empty", async function (t) {
 
   queue.addMessage({ name: 'app', event: 'log', description: 'msg1', timestamp: Date.now() });
 
-  t.ok(queue.flushInterval !== null, 'interval should be running');
+  assert.ok(queue.flushInterval !== null, 'interval should be running');
 
   // Process the queue until empty
   await queue.flush();
   await queue.processTick(); // This should stop the interval since queue is empty
 
-  t.equal(queue.flushInterval, null, 'interval should stop when queue is empty');
+  assert.strictEqual(queue.flushInterval, null, 'interval should stop when queue is empty');
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - cleans up old request history", function (t) {
-  t.plan(2);
+test("MessageQueue - cleans up old request history", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -327,15 +317,14 @@ test("MessageQueue - cleans up old request history", function (t) {
 
   const history = queue.getRequestHistory();
 
-  t.ok(history.length < 3, 'should have removed old entries');
-  t.ok(history.length >= 1, 'should keep recent entries');
+  assert.ok(history.length < 3, 'should have removed old entries');
+  assert.ok(history.length >= 1, 'should keep recent entries');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - buffers messages when buffer is enabled", async function (t) {
-  t.plan(2);
+test("MessageQueue - buffers messages when buffer is enabled", async () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -361,17 +350,16 @@ test("MessageQueue - buffers messages when buffer is enabled", async function (t
   // Wait for buffer to flush (1s) + rate limit interval (2s for 0.5 req/sec)
   await new Promise(resolve => setTimeout(resolve, 3500));
 
-  t.equal(sentMessages.length, 1, 'should send only one message');
-  t.ok(sentMessages[0].description.includes('Message 1') &&
+  assert.strictEqual(sentMessages.length, 1, 'should send only one message');
+  assert.ok(sentMessages[0].description.includes('Message 1') &&
     sentMessages[0].description.includes('Message 2') &&
     sentMessages[0].description.includes('Message 3'), 'should combine all messages');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - does not buffer when buffer is disabled", async function (t) {
-  t.plan(1);
+test("MessageQueue - does not buffer when buffer is disabled", async () => {
 
   let callCount = 0;
   const mockSender = async (messages) => {
@@ -394,14 +382,13 @@ test("MessageQueue - does not buffer when buffer is disabled", async function (t
   await queue.flush();
   await queue.flush();
 
-  t.ok(callCount >= 1, 'should send messages without buffering');
+  assert.ok(callCount >= 1, 'should send messages without buffering');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - respects buffer_seconds timing", async function (t) {
-  t.plan(1);
+test("MessageQueue - respects buffer_seconds timing", async () => {
 
   let callCount = 0;
   const mockSender = async (messages) => {
@@ -430,14 +417,13 @@ test("MessageQueue - respects buffer_seconds timing", async function (t) {
   // Wait for second buffer (500ms) + rate limit interval (2000ms)
   await new Promise(resolve => setTimeout(resolve, 2700));
 
-  t.equal(callCount, 2, 'should send two separate messages when buffer_seconds expires');
+  assert.strictEqual(callCount, 2, 'should send two separate messages when buffer_seconds expires');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - stops sending on invalid webhook (404)", async function (t) {
-  t.plan(3);
+test("MessageQueue - stops sending on invalid webhook (404)", async () => {
 
   let callCount = 0;
   const mockSender = async (messages) => {
@@ -463,23 +449,22 @@ test("MessageQueue - stops sending on invalid webhook (404)", async function (t)
   queue.addMessage({ name: 'app', event: 'log', description: 'msg1', timestamp: Date.now() });
   await queue.flush();
 
-  t.equal(callCount, 1, 'should have attempted to send once');
-  t.equal(queue.isWebhookInvalid(), true, 'should mark webhook as invalid');
+  assert.strictEqual(callCount, 1, 'should have attempted to send once');
+  assert.strictEqual(queue.isWebhookInvalid(), true, 'should mark webhook as invalid');
 
   // Try to add another message
   queue.addMessage({ name: 'app', event: 'log', description: 'msg2', timestamp: Date.now() });
   await queue.flush();
 
-  t.equal(callCount, 1, 'should not attempt to send again after 404');
+  assert.strictEqual(callCount, 1, 'should not attempt to send again after 404');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
 // ===== CHARACTER LIMIT TESTS =====
 
-test("MessageQueue - tracks character count correctly in buffer", function (t) {
-  t.plan(3);
+test("MessageQueue - tracks character count correctly in buffer", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -497,20 +482,19 @@ test("MessageQueue - tracks character count correctly in buffer", function (t) {
   const msg2 = { name: 'app', event: 'log', description: 'b'.repeat(500), timestamp: Date.now() };
 
   queue.addMessage(msg1);
-  t.equal(queue.characterCount, 500, 'should track first message (500 chars)');
+  assert.strictEqual(queue.characterCount, 500, 'should track first message (500 chars)');
 
   queue.addMessage(msg2);
-  t.equal(queue.characterCount, 1000, 'should track second message (500 + 500)');
+  assert.strictEqual(queue.characterCount, 1000, 'should track second message (500 + 500)');
 
   // Character count should be sum of descriptions, not including newlines (those are added on flush)
-  t.ok(queue.characterCount <= 1000, 'character count should only count message content');
+  assert.ok(queue.characterCount <= 1000, 'character count should only count message content');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - flushes buffer when character limit exceeded", async function (t) {
-  t.plan(2);
+test("MessageQueue - flushes buffer when character limit exceeded", async () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -530,20 +514,19 @@ test("MessageQueue - flushes buffer when character limit exceeded", async functi
 
   // Add messages that will exceed 2000 chars
   queue.addMessage({ name: 'app', event: 'log', description: 'x'.repeat(1500), timestamp: Date.now() });
-  t.equal(queue.currentBuffer.length, 1, 'first message should be buffered');
+  assert.strictEqual(queue.currentBuffer.length, 1, 'first message should be buffered');
 
   // This message would push us over 2000, should trigger flush of current buffer first
   queue.addMessage({ name: 'app', event: 'log', description: 'y'.repeat(800), timestamp: Date.now() });
 
   // After attempting to add the second message, first buffer should have been flushed
-  t.ok(queue.currentBuffer.length <= 1, 'current buffer should contain only the new message');
+  assert.ok(queue.currentBuffer.length <= 1, 'current buffer should contain only the new message');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - truncates single messages exceeding 2000 characters", function (t) {
-  t.plan(3);
+test("MessageQueue - truncates single messages exceeding 2000 characters", () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -571,16 +554,15 @@ test("MessageQueue - truncates single messages exceeding 2000 characters", funct
   queue.addMessage(oversizedMessage);
 
   // The message was truncated and flushed to the messageQueue, so check there
-  t.ok(sentMessages.length === 0, 'message should not have been sent yet (still in queue)');
-  t.ok(queue.messageQueue.length === 1, 'truncated message should be in message queue');
-  t.ok(queue.messageQueue[0].description.length <= 2000, 'message should be truncated to 2000 chars or less');
+  assert.ok(sentMessages.length === 0, 'message should not have been sent yet (still in queue)');
+  assert.ok(queue.messageQueue.length === 1, 'truncated message should be in message queue');
+  assert.ok(queue.messageQueue[0].description.length <= 2000, 'message should be truncated to 2000 chars or less');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - accounts for newlines when checking character limit", async function (t) {
-  t.plan(1);
+test("MessageQueue - accounts for newlines when checking character limit", async () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -606,14 +588,13 @@ test("MessageQueue - accounts for newlines when checking character limit", async
   // Check that messages were split (second was not added to buffer due to newline accounting)
   // After the second addMessage, the first should have been flushed
   const flushCount = queue.messageQueue.length + queue.currentBuffer.length;
-  t.ok(flushCount > 0, 'messages should be split across buffer and queue due to newline accounting');
+  assert.ok(flushCount > 0, 'messages should be split across buffer and queue due to newline accounting');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - shouldFlushBuffer triggers at character limit", function (t) {
-  t.plan(2);
+test("MessageQueue - shouldFlushBuffer triggers at character limit", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -632,21 +613,20 @@ test("MessageQueue - shouldFlushBuffer triggers at character limit", function (t
   queue.addMessage({ name: 'app', event: 'log', description: 'x'.repeat(1999), timestamp: Date.now() });
 
   // shouldFlushBuffer should not trigger yet (1999 < 2000)
-  t.equal(queue.shouldFlushBuffer(), false, 'should not flush at 1999 chars');
+  assert.strictEqual(queue.shouldFlushBuffer(), false, 'should not flush at 1999 chars');
 
   // Add one more char to hit exactly 2000
   queue.addMessage({ name: 'app', event: 'log', description: 'y'.repeat(1), timestamp: Date.now() });
 
   // Now it should flush (first message at 1999, adding 1 more would exceed)
   // Actually the flush happens during addMessage, so current buffer length should be 1
-  t.ok(queue.characterCount >= 0, 'buffer management should be working');
+  assert.ok(queue.characterCount >= 0, 'buffer management should be working');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - combines messages with newlines without exceeding limit", async function (t) {
-  t.plan(2);
+test("MessageQueue - combines messages with newlines without exceeding limit", async () => {
 
   let sentMessages = [];
   const mockSender = async (messages) => {
@@ -672,22 +652,21 @@ test("MessageQueue - combines messages with newlines without exceeding limit", a
   // Wait for buffer flush (1s) + rate limit interval (2s at 0.5 req/sec)
   await new Promise(resolve => setTimeout(resolve, 3500));
 
-  t.ok(sentMessages.length > 0, 'should send at least one message');
+  assert.ok(sentMessages.length > 0, 'should send at least one message');
 
   // The combined message should be under 2000
   if (sentMessages.length > 0) {
     const combinedLength = sentMessages[0].description.length;
-    t.ok(combinedLength <= 2000, `combined message should be under 2000 chars (got ${combinedLength})`);
+    assert.ok(combinedLength <= 2000, `combined message should be under 2000 chars (got ${combinedLength})`);
   } else {
-    t.ok(false, 'should have sent messages');
+    assert.ok(false, 'should have sent messages');
   }
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - resets character count on buffer flush", async function (t) {
-  t.plan(2);
+test("MessageQueue - resets character count on buffer flush", async () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -704,19 +683,18 @@ test("MessageQueue - resets character count on buffer flush", async function (t)
   const queue = new MessageQueue(config, mockSender);
 
   queue.addMessage({ name: 'app', event: 'log', description: 'x'.repeat(500), timestamp: Date.now() });
-  t.equal(queue.characterCount, 500, 'should have 500 chars before flush');
+  assert.strictEqual(queue.characterCount, 500, 'should have 500 chars before flush');
 
   // Wait for buffer to flush
   await new Promise(resolve => setTimeout(resolve, 1000));
 
-  t.equal(queue.characterCount, 0, 'character count should reset after flush');
+  assert.strictEqual(queue.characterCount, 0, 'character count should reset after flush');
 
   queue.stopInterval();
-  t.end();
+  
 });
 
-test("MessageQueue - respects queue_max limit along with character limit", function (t) {
-  t.plan(1);
+test("MessageQueue - respects queue_max limit along with character limit", () => {
 
   const mockSender = async (messages) => {
     return { success: true, rateLimitInfo: {} };
@@ -737,8 +715,8 @@ test("MessageQueue - respects queue_max limit along with character limit", funct
   }
 
   // Buffer should still have all 5 since they haven't hit flush yet
-  t.ok(queue.currentBuffer.length <= 5, 'should respect queue_max limit');
+  assert.ok(queue.currentBuffer.length <= 5, 'should respect queue_max limit');
 
   queue.stopInterval();
-  t.end();
+  
 });

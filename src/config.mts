@@ -74,8 +74,8 @@ export function convertConfigValue(key: string, value: unknown): unknown {
 
 let cachedConfig: Config | null = null;
 
-export function loadConfig(): Config {
-  if (cachedConfig) {
+export function loadConfig(refresh: boolean = false): Config {
+  if (cachedConfig && !refresh) {
     return cachedConfig;
   }
 
