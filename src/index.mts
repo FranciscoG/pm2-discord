@@ -3,6 +3,7 @@ import pm2 from 'pm2';
 import pmx from 'pmx';
 import stripAnsi from 'strip-ansi';
 import { loadConfig } from './config.mjs';
+import { debug } from './debug.mjs';
 import { checkProcessName, format, parseIncomingLog, parseProcessName } from './log-utils.mjs';
 import { MessageQueue } from './message-queue.mjs';
 import { sendToDiscord } from './send-to-discord.mjs';
@@ -17,7 +18,8 @@ if (!isValidDiscordWebhookUrl(config.discord_url)) {
   process.exit(1);
 }
 
-pmx.initModule(null, onInit);
+const configFromInit = pmx.initModule(null, onInit);
+debug('pm2-discord: Module initialized with config:', configFromInit);
 
 function onInit() {
   const messageQueue = new MessageQueue(
