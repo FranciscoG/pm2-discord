@@ -4,7 +4,7 @@
   "description": "A PM2 module to emit events and logs to discord",
   "main": "dist/index.mjs",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=16.0.0"
   },
   "scripts": {
     "test": "npm run build && NODE_ENV=test node --test tests/unit",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@types/axon": "^2.0.5",
-    "@types/node": "^18.0.0",
+    "@types/node": "^16.0.0",
     "typescript": "5.9.3"
   }
 }
