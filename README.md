@@ -43,7 +43,8 @@ You can simply turn these on and off by setting them to true or false using the 
 ```sh
 pm2 set pm2-discord:log true
 pm2 set pm2-discord:error false
-...
+pm2 set pm2-discord:"restart overlimit" false
+# etc
 ```
 
 ## Options

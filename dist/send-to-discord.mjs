@@ -1,8 +1,8 @@
-import fetch from 'node-fetch';
-import { debug } from './debug.mjs';
 import { readFileSync } from 'fs';
+import fetch from 'node-fetch';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { debug } from './debug.mjs';
 // Get version from package.json
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 let VERSION = 'unknown version'; // fallback
@@ -94,7 +94,7 @@ export async function sendToDiscord(messages, discord_url) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-        debug('Sending to Discord with payload:', payload);
+        debug('Sending to Discord');
         const res = await fetch(discord_url, { ...options, signal: controller.signal });
         clearTimeout(timeoutId);
         debug(`Discord webhook responded with status ${res.status}`);

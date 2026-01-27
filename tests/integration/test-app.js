@@ -13,7 +13,17 @@ function logOnce() {
 	console.log(`${ts} - test-app log line ${counter} at interval ${intervalMs}ms`);
 }
 
-setInterval(logOnce, intervalMs);
+const intervalId = setInterval(logOnce, intervalMs);
 
-// Keep process alive
-process.stdin.resume();
+/**
+ * 
+ * @param {'SIGINT' | 'SIGTERM'} signal 
+ */
+function handleShutdown(signal) {
+	console.log(`test-app.js received ${signal}, stopping log interval...`);
+	clearInterval(intervalId);
+	process.exit(0);
+}
+
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));

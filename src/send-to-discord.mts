@@ -1,10 +1,10 @@
-import type { Headers } from 'node-fetch';
-import type { DiscordMessage, SendToDiscordResult, DiscordRateLimitInfo } from './types/index.js';
-import fetch from 'node-fetch';
-import { debug } from './debug.mjs';
 import { readFileSync } from 'fs';
+import type { Headers } from 'node-fetch';
+import fetch from 'node-fetch';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { debug } from './debug.mjs';
+import type { DiscordMessage, DiscordRateLimitInfo, SendToDiscordResult } from './types/index.js';
 
 // Get version from package.json
 const __dirname = join(fileURLToPath(import.meta.url), '..');
@@ -107,7 +107,7 @@ export async function sendToDiscord(
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
-    debug('Sending to Discord with payload:', payload);
+    debug('Sending to Discord');
     const res = await fetch(discord_url, { ...options, signal: controller.signal });
     clearTimeout(timeoutId);
     debug(`Discord webhook responded with status ${res.status}`);
@@ -175,7 +175,7 @@ export async function sendToDiscord(
 
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     // Handle timeout specifically
     if (error.name === 'AbortError') {
       console.error(`pm2-discord: Discord webhook request timed out after ${FETCH_TIMEOUT_MS}ms`);

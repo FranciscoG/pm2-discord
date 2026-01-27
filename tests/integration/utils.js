@@ -18,13 +18,21 @@ function pm2Set(key, value) {
 
 /**
  * 
- * @param {Record<string, string | number>} envVars 
- * @param {string} [appName='test-app']
+ * @param {string} key 
  * @returns {void}
  */
-function pm2Start(envVars, appName = 'test-app') {
-	const envString = Object.entries(envVars).map(([k, v]) => `${k}=${v}`).join(' ');
-	execSync(`${envString} npx pm2 start ${__dirname}/test-app.js --name ${appName}`, { stdio: 'inherit' });
+function pm2Unset(key) {
+	execSync(`npx pm2 unset pm2-discord:${key}`, { stdio: 'inherit' });
+}
+
+/**
+ * 
+ * @param {string} envVars 
+ * @param {string} appName
+ * @returns {void}
+ */
+function pm2Start(envVars, appName) {
+	execSync(`${envVars} npx pm2 start ${__dirname}/test-app.js --name ${appName}`, { stdio: 'inherit' });
 }
 
 /**
@@ -58,29 +66,94 @@ function pm2KillAll() {
 	}
 }
 
+/**
+ * Resets all pm2-discord module configuration to defaults
+ */
 function pm2ResetConfig() {
-	const configKeys = [
-		'discord_url',
-		'log',
-		'buffer_seconds',
-		'buffer',
-		'queue_max',
-	];
-	for (const key of configKeys) {
+	// get currently configured items
+	const output = execSync('npx pm2 conf pm2-discord', { encoding: 'utf-8' });
+	/* Example output:
+Module: pm2-discord
+$ pm2 set pm2-discord:log true
+$ pm2 set pm2-discord:format false
+$ pm2 set pm2-discord:discord_url http://127.0.0.1:8000/webhook/
+	*/
+	if (output.includes('pm2 set pm2-discord:')) {
+		console.log('PM2 pm2-discord module configuration found, resetting to defaults...');
+		output.split('\n').forEach(line => {
+			const match = line.match(/^\$ pm2 set pm2-discord:(.+?) (.+)$/);
+			if (match) {
+				const [, key] = match;
+				try {
+					pm2Unset(key);
+				} catch (e) {
+					// ignore
+					console.log(`PM2 unset pm2-discord:${key} failed, ignoring...`, e.message);
+				}
+			}
+		})
+	}
+}
+
+/**
+ * stop [options] <id|name|all|json|stdin…>	stop a process 
+ * (to start it again, do pm2 restart <app>)
+ * @param {string} appName 
+ */
+function pm2Stop(appName) {
+	try {
+		execSync(`npx pm2 stop ${appName}`, { stdio: 'inherit' });
+	} catch (e) {
+		console.log(`PM2 stop ${appName} failed:`, e.message);
+	}
+}
+
+/**
+ * delete <name|id|script|all|json|stdin…> - stop and delete a process from pm2 process list
+ * @param {string} appName 
+ */
+function pm2Delete(appName) {
+	try {
+		const output = execSync(`npx pm2 show ${appName}`, { stdio: 'inherit' });
+	} catch (e) {
+		console.log(`No process found for ${appName}`, e.message);
+		return;
+	}
+	try {
+		execSync(`npx pm2 delete ${appName}`, { stdio: 'inherit' });
+	} catch (e) {
+		console.log(`PM2 delete ${appName} failed:`, e.message);
+		// Try force delete
 		try {
-			execSync(`npx pm2 unset pm2-discord:${key}`, { stdio: 'inherit' });
-		} catch (e) {
-			// ignore
-			console.log(`PM2 unset pm2-discord:${key} failed, ignoring...`, e.message);
+			execSync(`npx pm2 delete ${appName} --force`, { stdio: 'inherit' });
+		} catch (e2) {
+			console.log(`PM2 force delete ${appName} also failed:`, e2.message);
 		}
+	}
+}
+
+/**
+ * Kill any orphaned test-app.js processes running outside PM2 control
+ */
+function killOrphanedTestApps() {
+	try {
+		// Kill any node processes running test-app.js that aren't managed by PM2
+		// The || true ensures the command doesn't fail if no processes are found
+		execSync(`pkill -f "node.*test-app\\.js" || true`, { stdio: 'pipe' });
+	} catch (e) {
+		// ignore - no orphaned processes found
 	}
 }
 
 module.exports = {
 	sleep,
 	pm2Set,
+	pm2Unset,
 	pm2Start,
+	pm2Stop,
 	waitForRequests,
 	pm2KillAll,
-	pm2ResetConfig
+	pm2ResetConfig,
+	pm2Delete,
+	killOrphanedTestApps
 };
