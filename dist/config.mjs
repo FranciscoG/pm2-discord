@@ -1,0 +1,105 @@
+import { debug, log } from './logging.mjs';
+// Configuration limits - buffer and queue bounds
+const MIN_BUFFER_SECONDS = 1;
+const MAX_BUFFER_SECONDS = 5;
+const MIN_QUEUE_MAX = 10;
+const MAX_QUEUE_MAX = 100;
+export const defaultConfig = {
+    "log": true,
+    "error": false,
+    "kill": true,
+    "exception": true,
+    "restart": false,
+    "delete": false,
+    "stop": true,
+    "restart overlimit": true,
+    "exit": false,
+    "start": false,
+    "online": false,
+    "process_name": null,
+    "discord_url": null,
+    "buffer": true,
+    "buffer_seconds": 1,
+    "queue_max": 100,
+    "rate_limit_messages": 30,
+    "rate_limit_window_seconds": 60,
+    "format": true
+};
+function clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+}
+/**
+ * Convert string values to correct types
+ * PM2 passes config as stringified JSON, so values like "true", "1" need conversion
+ */
+export function convertConfigValue(key, value) {
+    // boolean keys - these should always be booleans
+    const booleanKeys = new Set([
+        'log', 'error', 'kill', 'exception', 'restart', 'delete', 'stop',
+        'restart overlimit', 'exit', 'start', 'online', 'buffer', 'format'
+    ]);
+    // Numeric keys - these should always be numbers
+    const numericKeys = new Set([
+        'buffer_seconds', 'queue_max', 'rate_limit_messages', 'rate_limit_window_seconds'
+    ]);
+    if (booleanKeys.has(key)) {
+        if (typeof value === 'boolean')
+            return value;
+        if (typeof value === 'string') {
+            const lower = value.toLowerCase().trim();
+            return lower === 'true' || lower === '1';
+        }
+        return Boolean(value);
+    }
+    if (numericKeys.has(key)) {
+        if (typeof value === 'number')
+            return value;
+        if (typeof value === 'string') {
+            const num = Number(value.trim());
+            return isNaN(num) ? undefined : num;
+        }
+        return undefined;
+    }
+    // remaining key is `process_name` which can be string, string[], or null/undefined
+    // and can be returned as-is
+    return value;
+}
+let cachedConfig = null;
+export function loadConfig(refresh = false) {
+    if (cachedConfig && !refresh) {
+        return cachedConfig;
+    }
+    // Read config directly from environment (PM2 sets this for modules)
+    const rawConfig = {};
+    const configFromEnv = process.env['pm2-discord'];
+    debug(`process.env['pm2-discord'] = ${configFromEnv}`);
+    try {
+        if (configFromEnv) {
+            const parsed = JSON.parse(configFromEnv);
+            if (typeof parsed === 'object' && parsed !== null) {
+                Object.assign(rawConfig, parsed);
+            }
+        }
+    }
+    catch (e) {
+        log('error', 'Error parsing module config from env:', e);
+    }
+    // Convert values to correct types based on key
+    const moduleConfig = {};
+    for (const key in rawConfig) {
+        const convertedValue = convertConfigValue(key, rawConfig[key]);
+        if (convertedValue !== undefined) {
+            // TypeScript: we know these are valid config keys after conversion
+            moduleConfig[key] = convertedValue;
+        }
+    }
+    debug('moduleConfig from env with corrected types:', moduleConfig);
+    const finalConfig = { ...defaultConfig, ...moduleConfig };
+    // buffer seconds can be between MIN_BUFFER_SECONDS and MAX_BUFFER_SECONDS, inclusive
+    finalConfig.buffer_seconds = clamp(finalConfig.buffer_seconds, MIN_BUFFER_SECONDS, MAX_BUFFER_SECONDS);
+    // queue max can be between MIN_QUEUE_MAX and MAX_QUEUE_MAX, inclusive
+    finalConfig.queue_max = clamp(finalConfig.queue_max, MIN_QUEUE_MAX, MAX_QUEUE_MAX);
+    debug('finalConfig after merge and clamp:', finalConfig);
+    cachedConfig = finalConfig;
+    return finalConfig;
+}

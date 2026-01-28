@@ -1,0 +1,69 @@
+name: Bug Report
+description: Report a bug or issue you've encountered
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please note that **PM2 v5 and below are no longer supported**.
+        
+        ⚠️ **Before submitting, please confirm your issue occurs with PM2 v6 or higher.**
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the bug you encountered
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Configure pm2-discord with...
+        2. Start the app with...
+        3. See the error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: |
+        Expected the webhook to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Error Messages
+      description: Share any relevant error messages or logs
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide details about your setup
+      placeholder: |
+        - Node.js version: 
+        - Exact PM2 version: 
+        - Exact pm2-discord version: 
+        - OS: 
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Anything else that might be relevant?
