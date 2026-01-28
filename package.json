@@ -10,7 +10,8 @@
     "test": "npm run build && NODE_ENV=test node --test tests/unit",
     "test:integration": "npm run build && NODE_ENV=test node --test tests/integration",
     "build": "rm -rf dist && tsc",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
