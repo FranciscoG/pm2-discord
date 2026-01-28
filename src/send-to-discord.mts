@@ -97,7 +97,7 @@ export async function sendToDiscord(
     body: JSON.stringify(payload),
     headers: {
       'Content-Type': 'application/json',
-      'User-Agent': `pm2-discord/${VERSION}`
+      'User-Agent': `pm2-discord@${VERSION}`
     }
   };
 

@@ -86,7 +86,7 @@ export async function sendToDiscord(messages, discord_url) {
         body: JSON.stringify(payload),
         headers: {
             'Content-Type': 'application/json',
-            'User-Agent': `pm2-discord/${VERSION}`
+            'User-Agent': `pm2-discord@${VERSION}`
         }
     };
     // Set up timeout protection (Discord should respond quickly)
