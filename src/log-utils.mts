@@ -82,12 +82,17 @@ export function parseProcessName(process: Process): string {
  * checkProcessName({ process: { name: 'api' } })    // => true
  * checkProcessName({ process: { name: 'worker' } }) // => false
  */
-export function checkProcessName(data: BusData, configProcessName: string | null = null): boolean {
+export function checkProcessName(data: BusData, configProcessName: string | string[] | null = null): boolean {
 	if (data.process.name === 'pm2-discord') { return false; }
 
 	if (typeof configProcessName === 'string' &&
 		data.process.name !== configProcessName) {
-		return false
+		return false;
+	}
+
+	if (Array.isArray(configProcessName) &&
+		!configProcessName.includes(data.process.name)) {
+		return false;
 	}
 
 	return true;

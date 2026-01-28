@@ -83,5 +83,9 @@ export function checkProcessName(data, configProcessName = null) {
         data.process.name !== configProcessName) {
         return false;
     }
+    if (Array.isArray(configProcessName) &&
+        !configProcessName.includes(data.process.name)) {
+        return false;
+    }
     return true;
 }
