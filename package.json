@@ -1,6 +1,6 @@
 {
   "name": "pm2-discord",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "A PM2 module to emit events and logs to discord",
   "main": "dist/index.mjs",
   "engines": {
