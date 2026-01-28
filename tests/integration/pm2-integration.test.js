@@ -11,11 +11,16 @@ const {
 	pm2KillAll,
 	pm2ResetConfig,
 	pm2Delete,
+	isPm2DiscordRunning,
+	installPm2DiscordModule,
+	pm2restart,
+	pm2MultiSet
 } = require('./utils');
 
 const APP_NAME = 'test-app';
 
 before(() => {
+	console.log(`\n\n==== Setting up integration test environment ====`);
 	// start fresh, kill everything from any previous runs. This uninstalls pm2-discord too.
 	// however it doesn't reset any config items set previously, so we will do that manually below.
 	pm2KillAll();
@@ -23,13 +28,25 @@ before(() => {
 	// this will remove all config settings set for pm2-discord
 	pm2ResetConfig();
 
-	// enable logging for all tests
-	pm2Set('log', true);
-	pm2Set('format', false); // disable rich formatting for easier testing
+	pm2MultiSet({
+		// start with a required discord_url setting so that pm2-discord doesn't exit immediately
+		'discord_url': `http://127.0.0.1:8000/webhook/`,
+		// enable logging for all tests
+		"log": true,
+		// disable rich formatting for easier testing
+		"format": false
+	});
 
-	// And then we re-install pm2-discord to ensure a clean state.
+	// And then we install pm2-discord to ensure a clean state.
 	// This one is important, if it fails, the test cannot continue.
-	execSync('PM2_DISCORD_DEBUG=1 NODE_ENV=test npx pm2 install .', { stdio: 'inherit' });
+	installPm2DiscordModule();
+
+	// you can't use the `--no-autorestart` flag when installing a module, so we need to
+	// stop and start it again to ensure autorestart is disabled for testing.
+	execSync('npx pm2 stop pm2-discord', { stdio: 'inherit' }); // ensure stopped before tests begin
+	execSync('npx pm2 start pm2-discord --no-autorestart', { stdio: 'inherit' }); // start fresh
+
+	console.log(`==== Integration test environment setup complete ====\n\n`);
 });
 
 /**
@@ -37,11 +54,16 @@ before(() => {
  * @param {() => Promise<void>} testFn 
  */
 async function withCleanup(testFn) {
+	// console.log the function name for easier debugging.
+	// names are in camelCase (example: testDiscordWebhookRateLimitingAndBuffering)
+	// and should be converted to sentence case for readability. (example: "Test discord webhook rate limiting and buffering")
+	const name = testFn.name.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+	console.log(`\n======= Running test: ${name} ======================\n`);
 	try {
 		await testFn();
 	} finally {
 		// Always try to clean up test-app
-		pm2Delete(APP_NAME);
+		pm2Delete(APP_NAME, `Cleanup for test: ${name}`);
 		// Give PM2 a moment to process the deletion
 		await sleep(500);
 	}
@@ -52,10 +74,10 @@ async function withCleanup(testFn) {
  * @param {string} appName
  * @param {number} sleepMs
  */
-async function startAppForTest(envVars, appName, sleepMs) {
+async function startWaitThenStopApp(envVars, appName, sleepMs) {
 	pm2Start(envVars, appName);
 	await sleep(sleepMs);
-	pm2Delete(appName);
+	pm2Delete(appName, 'startWaitThenStopApp');
 }
 
 /**
@@ -68,9 +90,26 @@ let mock;
  * So everything is in one big test block.
  */
 test('Integration tests', async () => {
-	// These tests need to run sequentially to avoid PM2 module conflicts.
+	async function missingDiscordUrlTest() {
+		console.log('pm2-discord should exit immediately if "discord_url" is not set');
 
-	async function test1() {
+		// First verify the module is running
+		let isRunning = isPm2DiscordRunning();
+		assert.ok(isRunning, 'pm2-discord should be running initially');
+
+		pm2Unset('discord_url');
+		pm2restart();
+
+		// Wait a moment for the module to attempt restart and exit
+		await sleep(2000);
+
+		// Check if module stopped
+		isRunning = isPm2DiscordRunning();
+		assert.ok(!isRunning, 'pm2-discord should have exited due to missing discord_url');
+	}
+	await withCleanup(missingDiscordUrlTest);
+
+	async function testDiscordWebhookRateLimitingAndBuffering() {
 		console.log('Starting Integration Test: success path with buffering + rate limiting');
 		mock = await startMockDiscordServer(8000);
 
@@ -78,7 +117,7 @@ test('Integration tests', async () => {
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
 		pm2Set('discord_url', url);
 
-		await startAppForTest('INTERVAL_MS=20', APP_NAME, 6000);
+		await startWaitThenStopApp('INTERVAL_MS=20', APP_NAME, 6000);
 
 		// wait to allow any remaining messages to flush
 		await sleep(4000);
@@ -98,9 +137,9 @@ test('Integration tests', async () => {
 
 		mock.server.close();
 	};
-	await withCleanup(test1);
+	await withCleanup(testDiscordWebhookRateLimitingAndBuffering);
 
-	async function test2() {
+	async function testDiscordWebhookRateLimitBackoff() {
 		console.log('Integration: handles 429 rate limit backoff');
 		mock = await startMockDiscordServer(8001);
 
@@ -110,7 +149,7 @@ test('Integration tests', async () => {
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
 		pm2Set('discord_url', url);
 
-		await startAppForTest('INTERVAL_MS=200', APP_NAME, 3500);
+		await startWaitThenStopApp('INTERVAL_MS=200', APP_NAME, 3500);
 
 		// wait to allow any remaining messages to flush
 		await sleep(4000);
@@ -126,9 +165,9 @@ test('Integration tests', async () => {
 		assert.ok(last, 'should have at least one request');
 		mock.server.close();
 	};
-	await withCleanup(test2);
+	await withCleanup(testDiscordWebhookRateLimitBackoff);
 
-	async function test3() {
+	async function testStopsOn404Response() {
 		console.log('Integration: stops sending on 404 invalid webhook');
 		mock = await startMockDiscordServer(8001);
 
@@ -137,7 +176,7 @@ test('Integration tests', async () => {
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
 		pm2Set('discord_url', url);
 
-		await startAppForTest('INTERVAL_MS=50', APP_NAME, 2500);
+		await startWaitThenStopApp('INTERVAL_MS=50', APP_NAME, 2500);
 
 		// what should happen now is only 1 attempt is made to send to Discord.
 		// Discord will return a 404 which should stop pm2-discord from attempting again
@@ -154,19 +193,21 @@ test('Integration tests', async () => {
 		assert.strictEqual(finalCount, initialCount, `should stop attempting after 404. Final attempts: ${finalCount}`);
 		mock.server.close();
 	}
-	await withCleanup(test3);
+	await withCleanup(testStopsOn404Response);
 
-	async function test4() {
+	async function testGracefulShutdownFlushesMessages() {
 		console.log('Integration: graceful shutdown flushes all messages')
 		mock = await startMockDiscordServer(8002);
 
 		mock.setMode(MODES.SUCCESS);
 
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
-		pm2Set('discord_url', url);
-		pm2Set('buffer_seconds', 5); // Long buffer to ensure messages are pending on shutdown
+		pm2MultiSet({
+			'discord_url': url,
+			'buffer_seconds': 5, // Long buffer to ensure messages are pending on shutdown
+		});
 
-		await startAppForTest('INTERVAL_MS=100', APP_NAME, 2000);
+		await startWaitThenStopApp('INTERVAL_MS=100', APP_NAME, 2000);
 
 		// Stop (SIGINT) instead of del to allow graceful shutdown
 		pm2Delete(APP_NAME);
@@ -189,9 +230,9 @@ test('Integration tests', async () => {
 		// reset the buffer_seconds to default so other tests aren't affected
 		pm2Unset('buffer_seconds')
 	}
-	await withCleanup(test4);
+	await withCleanup(testGracefulShutdownFlushesMessages);
 
-	async function test5() {
+	async function testHandlesGlobalRateLimit() {
 		console.log('Integration: handles global rate limit (429 with global scope)')
 		mock = await startMockDiscordServer(8003);
 
@@ -201,7 +242,7 @@ test('Integration tests', async () => {
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
 		pm2Set('discord_url', url);
 
-		await startAppForTest('INTERVAL_MS=100', APP_NAME, 2000);
+		await startWaitThenStopApp('INTERVAL_MS=100', APP_NAME, 2000);
 
 		// wait for any pending messages to flush
 		await sleep(3000);
@@ -216,17 +257,19 @@ test('Integration tests', async () => {
 		mock.server.close();
 	}
 
-	await withCleanup(test5);
+	await withCleanup(testHandlesGlobalRateLimit);
 
-	async function test6() {
+	async function testBufferingDisabledSendsMessagesImmediately() {
 		console.log('Integration: buffering disabled - sends messages immediately')
 		mock = await startMockDiscordServer(8004);
 
 		mock.setMode(MODES.SUCCESS);
 
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
-		pm2Set('discord_url', url);
-		pm2Set('buffer', false);  // Disable buffering
+		pm2MultiSet({
+			'discord_url': url,
+			'buffer': false,
+		});
 
 		await sleep(1000);
 
@@ -267,18 +310,20 @@ test('Integration tests', async () => {
 
 	}
 
-	await withCleanup(test6);
+	await withCleanup(testBufferingDisabledSendsMessagesImmediately);
 
-	async function test7() {
+	async function testRespectsCharacterLimitInBufferedMessages() {
 		console.log('Integration: respects 2000 character limit in buffered messages')
 		mock = await startMockDiscordServer(8005);
 
 		mock.setMode(MODES.SUCCESS);
 
 		const url = `http://127.0.0.1:${mock.port}/webhook/`;
-		pm2Set('discord_url', url);
-		pm2Set('buffer', true);
-		pm2Set('buffer_seconds', 2);
+		pm2MultiSet({
+			'discord_url': url,
+			'buffer': true,
+			'buffer_seconds': 2
+		});
 
 		await sleep(1000);
 
@@ -317,12 +362,12 @@ test('Integration tests', async () => {
 		// Reset settings
 		pm2Unset('buffer_seconds');
 	}
-	await withCleanup(test7);
+	await withCleanup(testRespectsCharacterLimitInBufferedMessages);
 });
 
 
 after(() => {
-	console.log('Cleaning up after integration tests');
+	console.log(`\n\nCleaning up after integration tests`);
 	mock?.server?.close((error) => {
 		if (error) {
 			console.error('Error closing mock server:', error);
@@ -334,4 +379,5 @@ after(() => {
 
 	// Give PM2 time to clean up
 	execSync('sleep 1');
+	console.log(`Integration tests complete.\n\n`);
 });

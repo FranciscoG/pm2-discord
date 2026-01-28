@@ -19,6 +19,17 @@ function pm2Set(key, value) {
 
 /**
  * 
+ * @param {Record<string, string | number | boolean | null>} keyValues 
+ */
+function pm2MultiSet(keyValues) {
+	const sets = Object.entries(keyValues).map(([key, value]) => {
+		return `pm2-discord:${key} ${value}`;
+	}).join(' ');
+	execSync(`npx pm2 multiset "${sets}"`, { stdio: 'inherit' });
+}
+
+/**
+ * 
  * @param {string} key 
  * @returns {void}
  */
@@ -33,8 +44,13 @@ function pm2Unset(key) {
  * @returns {void}
  */
 function pm2Start(envVars, appName) {
-
-	execSync(`${envVars} npx pm2 start ${join(__dirname, '..', 'fixtures', 'test-app.js')} --name ${appName}`, { stdio: 'inherit' });
+	try {
+		execSync(`${envVars} npx pm2 start ${join(__dirname, '..', 'fixtures', 'test-app.js')} --name ${appName} --no-autorestart`, { stdio: 'inherit' });
+	} catch (e) {
+		console.error(`PM2 start ${appName} failed:`, e.message);
+		console.error(e);
+		throw e;
+	}
 }
 
 /**
@@ -72,6 +88,7 @@ function pm2KillAll() {
  * Resets all pm2-discord module configuration to defaults
  */
 function pm2ResetConfig() {
+	console.log('\nBegin PM2 pm2-discord module configuration reset...');
 	// get currently configured items
 	const output = execSync('npx pm2 conf pm2-discord', { encoding: 'utf-8' });
 	/* Example output:
@@ -94,6 +111,9 @@ $ pm2 set pm2-discord:discord_url http://127.0.0.1:8000/webhook/
 				}
 			}
 		})
+		console.log('PM2 pm2-discord module configuration reset complete.\n');
+	} else {
+		console.log('No PM2 pm2-discord module configuration found, nothing to reset.\n');
 	}
 }
 
@@ -113,14 +133,11 @@ function pm2Stop(appName) {
 /**
  * delete <name|id|script|all|json|stdin…> - stop and delete a process from pm2 process list
  * @param {string} appName 
+ * @param {string} [source]
  */
-function pm2Delete(appName) {
-	try {
-		const output = execSync(`npx pm2 show ${appName}`, { stdio: 'inherit' });
-	} catch (e) {
-		console.log(`No process found for ${appName}`, e.message);
-		return;
-	}
+function pm2Delete(appName, source) {
+	if (source) console.log(`PM2 deleting process ${appName} at ${source}`);
+
 	try {
 		execSync(`npx pm2 delete ${appName}`, { stdio: 'inherit' });
 	} catch (e) {
@@ -147,6 +164,43 @@ function killOrphanedTestApps() {
 	}
 }
 
+/**
+ * Check if pm2-discord module is running
+ * @returns {boolean} true if the module is running, false otherwise
+ */
+function isPm2DiscordRunning() {
+	try {
+		const output = execSync('npx pm2 list', { encoding: 'utf-8' });
+		console.log(`isPm2DiscordRunning:\n`, output)
+
+		if (!output.includes('pm2-discord')) {
+			return false; // Module not found
+		}
+
+		// The output will show pm2-discord as a module with status
+		// We're looking for the module status to be "online" or "stopped"
+		const moduleLines = output.split('\n').filter(line => line.includes('pm2-discord'));
+
+		if (moduleLines.length === 0) {
+			return false; // Module not found
+		}
+
+		// Check if any line shows the module as "online"
+		return moduleLines.some(line => line.includes('online'));
+	} catch (e) {
+		console.log('Error checking pm2-discord status:', e.message);
+		return false;
+	}
+}
+
+function pm2restart() {
+	execSync('npx pm2 restart pm2-discord', { stdio: 'inherit' });
+}
+
+function installPm2DiscordModule() {
+	execSync('PM2_DISCORD_DEBUG=1 NODE_ENV=test npx pm2 install .', { stdio: 'inherit' });
+}
+
 module.exports = {
 	sleep,
 	pm2Set,
@@ -157,5 +211,9 @@ module.exports = {
 	pm2KillAll,
 	pm2ResetConfig,
 	pm2Delete,
-	killOrphanedTestApps
+	killOrphanedTestApps,
+	isPm2DiscordRunning,
+	pm2restart,
+	installPm2DiscordModule,
+	pm2MultiSet
 };
