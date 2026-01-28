@@ -38,10 +38,10 @@ function clamp(num: number, min: number, max: number): number {
  * PM2 passes config as stringified JSON, so values like "true", "1" need conversion
  */
 export function convertConfigValue(key: string, value: unknown): unknown {
-  // Boolean keys - these should always be booleans
+  // boolean keys - these should always be booleans
   const booleanKeys = new Set<string>([
     'log', 'error', 'kill', 'exception', 'restart', 'delete', 'stop',
-    'exit', 'start', 'online', 'buffer', 'format'
+    'restart overlimit', 'exit', 'start', 'online', 'buffer', 'format'
   ]);
 
   // Numeric keys - these should always be numbers
@@ -67,8 +67,8 @@ export function convertConfigValue(key: string, value: unknown): unknown {
     return undefined;
   }
 
-  // String keys (like 'discord_url', 'process_name') - keep as-is
-  if (typeof value === 'string') return value;
+  // remaining key is `process_name` which can be string, string[], or null/undefined
+  // and can be returned as-is
   return value;
 }
 
@@ -81,10 +81,11 @@ export function loadConfig(refresh: boolean = false): Config {
 
   // Read config directly from environment (PM2 sets this for modules)
   const rawConfig: Record<string, unknown> = {};
-  debug(`process.env['pm2-discord'] = ${process.env['pm2-discord']}`)
+  const configFromEnv = process.env['pm2-discord'];
+  debug(`process.env['pm2-discord'] = ${configFromEnv}`)
   try {
-    if (process.env['pm2-discord']) {
-      const parsed = JSON.parse(process.env['pm2-discord']);
+    if (configFromEnv) {
+      const parsed = JSON.parse(configFromEnv);
       if (typeof parsed === 'object' && parsed !== null) {
         Object.assign(rawConfig, parsed);
       }
