@@ -1,4 +1,5 @@
-const { execSync } = require('child_process');
+const { execSync } = require('node:child_process');
+const { join } = require('node:path');
 
 /**
  * @param {number} ms 
@@ -32,7 +33,8 @@ function pm2Unset(key) {
  * @returns {void}
  */
 function pm2Start(envVars, appName) {
-	execSync(`${envVars} npx pm2 start ${__dirname}/test-app.js --name ${appName}`, { stdio: 'inherit' });
+
+	execSync(`${envVars} npx pm2 start ${join(__dirname, '..', 'fixtures', 'test-app.js')} --name ${appName}`, { stdio: 'inherit' });
 }
 
 /**
