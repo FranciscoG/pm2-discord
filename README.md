@@ -54,12 +54,12 @@ The following options are available:
 
 | option | type | description | default |
 | ----- | ----- | ----------- | ------- |
-| process_name | `string` | When this is set, it will only output the logs of a specific named process | `null` |
-| buffer | `bool` | Enable/Disable buffering of messages. See [Buffering](#buffering) section below for more info | `true` |
-| buffer_seconds | `int` | If buffer is true, how many seconds to wait between messages. Min: `1`, Max: `5` | `1` |
-| queue_max | `int` | Max amount of messages allowed in the queue before flushing the queue.  Min: `10`, Max: `100`  | `100` |
-| rate_limit_messages | `int` | Number of messages allowed within the rate limit window (defaults to Discord webhook limit) | `30` |
-| rate_limit_window_seconds | `int` | Time window in seconds for rate limiting (defaults to Discord webhook limit) | `60` |
+| process_name | `string` \| `string[]` | If set, it will only output the logs of the specified process or processes | `null` |
+| buffer | `boolean` | Enable/Disable buffering of messages. See [Buffering](#buffering) section below for more info | `true` |
+| buffer_seconds | `number` | If buffer is true, how many seconds to wait between messages. Min: `1`, Max: `5` | `1` |
+| queue_max | `number` | Max amount of messages allowed in the queue before flushing the queue.  Min: `10`, Max: `100`  | `100` |
+| rate_limit_messages | `number` | Number of messages allowed within the rate limit window (defaults to Discord webhook limit) | `30` |
+| rate_limit_window_seconds | `number` | Time window in seconds for rate limiting (defaults to Discord webhook limit) | `60` |
 | format | `boolean` | If enabled, it wraps the message in triple backticks to format as a [multi-line code block](https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline#h_01GY0DAKGXDEHE263BCAYEGFJA) | `false` |
 
 Set these options in the same way you subscribe to events.
@@ -118,6 +118,14 @@ It works like this, lets say we have an empty queue and our first message comes 
 - then we wait for new message to come in and start the process all over again
 
 "flush the queue" means that we concatenate all messages in the queue and send it to Discord as 1 single message, and then start a new empty queue.
+
+## Debugging
+
+You can turn on more verbose logging by setting the `PM2_DISCORD_DEBUG=1` environment variable when you install the module. This is useful in debugging `pm2-discord` itself.
+
+```sh
+PM2_DISCORD_DEBUG=1 pm2 install pm2-discord
+```
 
 ## Contributing
 
