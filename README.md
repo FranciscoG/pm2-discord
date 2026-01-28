@@ -14,13 +14,14 @@ To install and setup pm2-discord, run the following commands:
 
 ```sh
 pm2 install pm2-discord
+# set required discord_url
 pm2 set pm2-discord:discord_url https://your_discord_webhook_url
 ```
 
 #### `discord_url`
 To get the Discord URL, you need to setup a Webhook. More details on how to set this up can be found here: https://support.discordapp.com/hc/en-us/articles/228383668-Intro-to-Webhooks
 
-## Configure
+## Config
 
 The following events can be subscribed to:
 
@@ -38,7 +39,7 @@ The following events can be subscribed to:
 | start | Event fired when a process is started | `false` |
 | online | Event fired when a process is online | `false` |
 
-You can simply turn these on and off by setting them to true or false using the PM2 set command.
+You can simply turn these on and off by setting them to `true` or `false` using the PM2 set command.
 
 ```sh
 pm2 set pm2-discord:log true
@@ -113,6 +114,7 @@ It works like this, lets say we have an empty queue and our first message comes 
 - if a new message comes in and the `buffer_seconds` timer has not expired, cancel it, add message to queue, start a new `buffer_seconds` timer. Repeat this until one of three things happen:
   - If no new messages come and `buffer_seconds` timeout expires, flush the queue
   - if the length of the queue array reaches `queue_max`, flush the queue and cancel all timers
+  - The combined message character length would exceed the 2000 character limit for discord webhook payloads
 - then we wait for new message to come in and start the process all over again
 
 "flush the queue" means that we concatenate all messages in the queue and send it to Discord as 1 single message, and then start a new empty queue.

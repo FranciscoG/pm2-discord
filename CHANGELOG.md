@@ -1,18 +1,19 @@
 # Changelog
 
-## 1.0.0
-### 2026-01-22
+## 1.0.0-beta.1
+### 2026-01-28
 
 ### Breaking Changes
 
-- Set the minimum Node engine to `>=16.0.0` to match [pm2's v6](https://github.com/Unitech/pm2/blob/v6.0.14/package.json). In pm2 v5 is was Node 12.
+- Set the minimum Node engine to `>=16.0.0` to match [pm2's v6](https://github.com/Unitech/pm2/blob/v6.0.14/package.json).
 
 ### Features
 
 - Implemented requested updates from [this PR](https://github.com/FranciscoG/pm2-discord/pull/6).
-  - added a new `format` option, default to `false`, that wraps the message sent to Discord in backticks to format it as a multi-line code black using triple-backticks
-
-    `pm2 set pm2-discord:format true`
+  - added a new `format` option, default to `false`, that wraps the message sent to Discord with triple-backticks for multi-line code block.
+    ```sh
+    pm2 set pm2-discord:format true
+    ```
   
   - In the payload to the Discord webhook, set the username to be the process name.
 
@@ -26,13 +27,9 @@
 - **Invalid Webhook Detection**: Prevents repeated 404 errors
   - Detects when webhooks are deleted or invalid (404 responses)
   - Automatically stops sending to invalid webhooks
-  - Prevents Cloudflare bans from repeated invalid requests
+  - Prevents bans from repeated invalid requests
 
-- **Message Buffering** (preserved from original): Groups messages within time windows
-  - Enabled by default: `buffer: true`, `buffer_seconds: 1`
-  - Messages arriving within `buffer_seconds` are combined into single Discord messages
-  - Reduces notification spam for busy logs
-  - Works seamlessly with rate limiting: Buffer → Queue → Rate-limited Send
+- added character limit checks for webhook payload content to not exceed the [2000 character limit](https://discord.com/developers/docs/resources/webhook#execute-webhook-jsonform-params).
 
 ### Internal Changes
 
