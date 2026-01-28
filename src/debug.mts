@@ -1,9 +1,12 @@
 
-// in order for PM2_DISCORD_DEBUG to work you must add it when installing pm2-discord during local testing
-// PM2_DISCORD_DEBUG=1 pm2 install .
-
+/**
+ * Wrapper around console.debug that only logs if `PM2_DISCORD_DEBUG` env var is set.
+ * `PM2_DISCORD_DEBUG` must be '1' or 'true' (case insensitive) to enable debug logging.
+ * @param args 
+ */
 export function debug(...args: any[]): void {
-	if (process.env['PM2_DISCORD_DEBUG'] === '1') {
+	const debugEnv = process.env['PM2_DISCORD_DEBUG'];
+	if (debugEnv && (debugEnv === '1' || debugEnv.toLowerCase() === 'true')) {
 		console.debug(`pm2-discord [DEBUG]: ${new Date().toISOString()} - `, ...args);
 	}
 }
