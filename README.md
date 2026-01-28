@@ -4,9 +4,11 @@ This is a PM2 Module for sending events & logs from your PM2 processes to Discor
 
 ## Requirements
 
-You should have [pm2](https://www.npmjs.com/package/pm2) installed globally or locally. This has only been tested with versions `>=5.x.x`
+You should have [pm2](https://www.npmjs.com/package/pm2) installed at `v6.x.x` (the latest major version as of publishing this). 
 
-Node `>=16.0.0` to match [pm2's min version of node](https://github.com/Unitech/pm2/blob/v6.0.14/package.json) for v6
+I've set the minimum version of Node supported to `v16.0.0` to match [pm2's min version of node for v6](https://github.com/Unitech/pm2/blob/v6.0.14/package.json). 
+
+This might work with PM2 `v5` but I can't guarantee that, use at your own risk. This version will not support for PM2 v5 or below.
 
 ## Install
 

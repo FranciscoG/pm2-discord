@@ -6,6 +6,7 @@
 ### Breaking Changes
 
 - Set the minimum Node engine to `>=16.0.0` to match [pm2's v6](https://github.com/Unitech/pm2/blob/v6.0.14/package.json).
+- Dropped support for PM2 v5 or below. It still might work with PM2 v5, as I can't find any major breaking changes in PM2's changelog, but if you have issues with pm2-discord and you're on PM2 v5, I will not fix any issues until you confirm they are still happening in PM2 v6.
 
 ### Features
 
