@@ -133,7 +133,7 @@ PM2_DISCORD_DEBUG=1 pm2 install pm2-discord
 
 In lieu of a formal style guide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code.
 
-In development you need Node >= 20 because this project uses Node's built in Test Runner.
+In development you need Node >= v20 because this project uses Node's built in Test Runner.
 
 ## Acknowledgements
 
