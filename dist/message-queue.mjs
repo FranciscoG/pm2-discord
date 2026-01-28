@@ -1,4 +1,4 @@
-import { debug } from './debug.mjs';
+import { debug, log } from './logging.mjs';
 // Rate limit constants
 // Discord webhooks have a specific limit: 30 requests per 60 seconds = 0.5 req/sec
 const WEBHOOK_RATE_LIMIT = 30;
@@ -173,7 +173,7 @@ export class MessageQueue {
             }
             if (!this.isShuttingDown) {
                 const delay = this.getDelayUntilNextSend();
-                console.debug(`pm2-discord: In rate limit backoff, delaying next send by ${delay}ms`);
+                log('log', `In rate limit backoff, delaying next send by ${delay}ms`);
                 this.backoffTimeout = setTimeout(() => {
                     this.backoffTimeout = null;
                     this.startInterval();
@@ -205,7 +205,7 @@ export class MessageQueue {
             }
             // Handle webhook invalid (404) - stop sending
             if (result.webhookInvalid) {
-                console.error('pm2-discord: Webhook marked as invalid. Stopping message processing.');
+                log('error', 'Webhook marked as invalid. Stopping message processing.');
                 this.webhookInvalid = true;
                 this.stopInterval();
                 // Don't put messages back - they can't be sent to an invalid webhook
@@ -213,7 +213,7 @@ export class MessageQueue {
             }
             // Handle rate limit response - enter backoff period
             if (result.rateLimited && result.retryAfter) {
-                console.log(`pm2-discord: Rate limited by Discord. Backing off for ${result.retryAfter}s`);
+                log('log', `Rate limited by Discord. Backing off for ${result.retryAfter}s`);
                 this.rateLimitedUntil = Date.now() + (result.retryAfter * 1000);
                 // Put messages back at front of queue for retry (if not exceeding max attempts)
                 // Track retry attempts to prevent infinite loops in edge cases
@@ -223,7 +223,7 @@ export class MessageQueue {
                         this.messageQueue.unshift(msg);
                     }
                     else {
-                        console.warn(`pm2-discord: Message exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}), discarding`);
+                        log('warn', `Message exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}), discarding`);
                     }
                 });
             }
@@ -236,13 +236,13 @@ export class MessageQueue {
                         this.messageQueue.unshift(msg);
                     }
                     else {
-                        console.warn(`pm2-discord: Message exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}), discarding: ${result.error}`);
+                        log('warn', `Message exceeded max retry attempts (${MAX_RETRY_ATTEMPTS}), discarding: ${result.error}`);
                     }
                 });
             }
         }
         catch (error) {
-            console.error('pm2-discord: Error sending to Discord:', error);
+            log('error', 'Error sending to Discord:', error);
         }
         finally {
             this.isSending = false;
@@ -258,7 +258,7 @@ export class MessageQueue {
         }
         this.flushInterval = setInterval(() => {
             this.processTick().catch(err => {
-                console.error('pm2-discord: Error in processTick:', err);
+                log('error', 'Error in processTick:', err);
             });
         }, this.tickIntervalMs);
     }
@@ -338,7 +338,7 @@ export class MessageQueue {
      */
     addMessage(message) {
         if (this.isShuttingDown) {
-            console.warn('pm2-discord: Ignoring message received during shutdown');
+            log('warn', 'Ignoring message received during shutdown');
             return;
         }
         const bufferEnabled = this.config.buffer ?? true;
@@ -347,7 +347,7 @@ export class MessageQueue {
         let newMessageLength = message.description?.length ?? 0;
         // Truncate single messages that exceed the limit
         if (newMessageLength > DISCORD_MESSAGE_CHAR_LIMIT) {
-            console.warn('pm2-discord: Single message exceeds 2000 character limit, truncating...');
+            log('warn', 'Single message exceeds 2000 character limit, truncating...');
             message.description = message.description?.substring(0, DISCORD_MESSAGE_CHAR_LIMIT - 3) + '...';
             // Recalculate length after truncation
             newMessageLength = message.description?.length ?? 0;
@@ -358,7 +358,7 @@ export class MessageQueue {
             // For current buffer of size N, adding 1 message means (N) newlines between all messages
             const newlinesThatWillExist = this.currentBuffer.length; // Each message except first has a newline before it
             if (this.characterCount + newlinesThatWillExist + newMessageLength > DISCORD_MESSAGE_CHAR_LIMIT) {
-                console.log('pm2-discord: Adding this message would exceed 2000 character limit, flushing current buffer first.');
+                log('log', 'Adding this message would exceed 2000 character limit, flushing current buffer first.');
                 this.flushBuffer();
             }
             // Add to current buffer
@@ -367,7 +367,7 @@ export class MessageQueue {
             this.characterCount += newMessageLength;
             // Check if buffer has reached queue_max - if so, flush immediately
             if (this.shouldFlushBuffer()) {
-                console.log('pm2-discord: Buffer reached queue_max, flushing immediately.');
+                log('log', 'Buffer reached queue_max, flushing immediately.');
                 // Cancel the timer since we're flushing now
                 if (this.bufferTimer) {
                     clearTimeout(this.bufferTimer);

@@ -9,3 +9,17 @@ export function debug(...args) {
         console.debug(`pm2-discord [DEBUG]: ${new Date().toISOString()} - `, ...args);
     }
 }
+export function log(level, ...args) {
+    const timestamp = `pm2-discord [${level.toUpperCase()}]: ${new Date().toISOString()} - `;
+    switch (level) {
+        case 'log':
+        case 'info':
+        case 'warn':
+        case 'error':
+        case 'debug':
+            console[level](timestamp, ...args);
+            break;
+        default:
+            console[level](...args);
+    }
+}

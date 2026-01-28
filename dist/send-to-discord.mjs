@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import fetch from 'node-fetch';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { debug } from './debug.mjs';
+import { debug, log } from './logging.mjs';
 // Get version from package.json
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 let VERSION = 'unknown version'; // fallback
@@ -13,7 +13,7 @@ try {
 }
 catch (e) {
     // If we can't read package.json, use fallback version
-    console.error('pm2-discord: Could not read version from package.json:', e);
+    log('error', 'Could not read version from package.json:', e);
 }
 /**
  * Parse rate limit headers from Discord API response
@@ -67,7 +67,7 @@ export async function sendToDiscord(messages, discord_url) {
     }
     // If a Discord URL is not set, we do not want to continue and notify the user that it needs to be set
     if (!discord_url) {
-        console.error("pm2-discord: Discord URL is not configured.");
+        log('error', "Discord URL is not configured.");
         return {
             success: false,
             error: "Discord URL not configured",
@@ -118,7 +118,7 @@ export async function sendToDiscord(messages, discord_url) {
             if (res.headers.get('x-ratelimit-global')) {
                 isGlobal = true;
             }
-            console.error(`pm2-discord: Discord rate limit hit. ${isGlobal ? 'Global' : 'Route'} limit. Retry after ${retryAfter}s`);
+            log('error', `Discord rate limit hit. ${isGlobal ? 'Global' : 'Route'} limit. Retry after ${retryAfter}s`);
             return {
                 success: false,
                 rateLimited: true,
@@ -136,7 +136,7 @@ export async function sendToDiscord(messages, discord_url) {
         }
         // Handle 404 - webhook no longer exists, stop trying to use it
         if (res.status === 404) {
-            console.error(`Discord webhook returned 404 Not Found. Webhook is invalid and will not be retried.`);
+            log('error', `Discord webhook returned 404 Not Found. Webhook is invalid and will not be retried.`);
             return {
                 success: false,
                 webhookInvalid: true,
@@ -145,7 +145,7 @@ export async function sendToDiscord(messages, discord_url) {
             };
         }
         // Handle other error statuses
-        console.error(`pm2-discord: Discord webhook returned status ${res.status}: ${res.statusText}`);
+        log('error', `Discord webhook returned status ${res.status}: ${res.statusText}`);
         return {
             success: false,
             error: `HTTP ${res.status}: ${res.statusText}`,
@@ -156,7 +156,7 @@ export async function sendToDiscord(messages, discord_url) {
         clearTimeout(timeoutId);
         // Handle timeout specifically
         if (error.name === 'AbortError') {
-            console.error(`pm2-discord: Discord webhook request timed out after ${FETCH_TIMEOUT_MS}ms`);
+            log('error', `Discord webhook request timed out after ${FETCH_TIMEOUT_MS}ms`);
             return {
                 success: false,
                 error: 'Webhook request timeout',
@@ -164,7 +164,7 @@ export async function sendToDiscord(messages, discord_url) {
                 rateLimitInfo: {}
             };
         }
-        console.error('pm2-discord: Error sending to Discord:', error.message);
+        log('error', `Error sending to Discord: ${error.message}`);
         return {
             success: false,
             error: error.message,

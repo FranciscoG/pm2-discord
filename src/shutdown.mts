@@ -1,3 +1,4 @@
+import { log } from './logging.mjs';
 import type { MessageQueue } from './message-queue.mjs';
 
 // Shutdown timeout constants
@@ -11,7 +12,7 @@ export async function gracefulShutdown(messageQueue: MessageQueue) {
 		process.exit(0);
 	}
 
-	console.log('pm2-discord: Caught shutdown signal, flushing message queue before exit.', new Date().toISOString());
+	log('log', 'Caught shutdown signal, flushing message queue before exit.');
 
 	const queue = messageQueue;
 	queue.beginShutdown();
@@ -22,7 +23,7 @@ export async function gracefulShutdown(messageQueue: MessageQueue) {
 	let attempts = 0;
 	while (queue.messageQueue.length > 0 && !queue.webhookInvalid && attempts < MAX_SHUTDOWN_ATTEMPTS) {
 		if (Date.now() - startTime > SHUTDOWN_TIMEOUT_MS) {
-			console.warn('pm2-discord: Shutdown timeout reached, exiting with remaining messages', new Date().toISOString());
+			log('warn', 'Shutdown timeout reached, exiting with remaining messages');
 			break;
 		}
 		await queue.processTick();
@@ -31,7 +32,7 @@ export async function gracefulShutdown(messageQueue: MessageQueue) {
 		await new Promise(r => setTimeout(r, SHUTDOWN_RETRY_DELAY_MS));
 	}
 
-	console.log('pm2-discord: Message queue flushed, exiting.');
+	log('log', 'Message queue flushed, exiting.');
 	process.exit(0);
 }
 

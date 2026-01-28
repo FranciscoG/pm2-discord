@@ -2,8 +2,8 @@ import pm2 from 'pm2';
 import pmx from 'pmx';
 import stripAnsi from 'strip-ansi';
 import { loadConfig } from './config.mjs';
-import { debug } from './debug.mjs';
 import { checkProcessName, format, parseIncomingLog, parseProcessName } from './log-utils.mjs';
+import { debug, log } from './logging.mjs';
 import { MessageQueue } from './message-queue.mjs';
 import { sendToDiscord } from './send-to-discord.mjs';
 import { gracefulShutdown } from './shutdown.mjs';
@@ -26,7 +26,7 @@ function onInit() {
     }, sendToDiscord);
     // Handle graceful shutdown
     const handleShutdown = () => gracefulShutdown(messageQueue).catch(e => {
-        console.error('pm2-discord: Error during graceful shutdown:', e);
+        log('error', 'Error during graceful shutdown:', e);
         process.exit(1);
     });
     process.on('SIGINT', handleShutdown);

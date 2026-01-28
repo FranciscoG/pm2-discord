@@ -1,4 +1,4 @@
-import { debug } from './debug.mjs';
+import { debug, log } from './logging.mjs';
 // Configuration limits - buffer and queue bounds
 const MIN_BUFFER_SECONDS = 1;
 const MAX_BUFFER_SECONDS = 5;
@@ -82,7 +82,7 @@ export function loadConfig(refresh = false) {
         }
     }
     catch (e) {
-        console.error('pm2-discord: Error parsing module config from env:', e);
+        log('error', 'Error parsing module config from env:', e);
     }
     // Convert values to correct types based on key
     const moduleConfig = {};

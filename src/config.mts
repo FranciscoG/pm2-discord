@@ -1,4 +1,4 @@
-import { debug } from './debug.mjs';
+import { debug, log } from './logging.mjs';
 import type { Config } from './types/index.js';
 
 // Configuration limits - buffer and queue bounds
@@ -91,7 +91,7 @@ export function loadConfig(refresh: boolean = false): Config {
       }
     }
   } catch (e) {
-    console.error('pm2-discord: Error parsing module config from env:', e);
+    log('error', 'Error parsing module config from env:', e);
   }
 
   // Convert values to correct types based on key
